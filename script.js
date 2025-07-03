@@ -541,21 +541,28 @@ function generateBalancedLinking() {
 
 function generateAuthorityLinking() {
     const linkingMap = {};
+    const linksPerArticle = parseInt(document.getElementById('linksPerArticle').value, 10);
+    // نعتبر أول 3 مقالات هي المقالات ذات السلطة (Authority)
+    const authorityArticles = articles.slice(0, 3);
+    const otherArticles = articles.slice(3);
+
     articles.forEach((article) => {
         const linkedArticles = [pillarPage];
-        const priorityArticles = articles.slice(0, Math.min(3, articles.length));
-        const otherArticles = articles.slice(3);
         
-        priorityArticles.forEach(priorityArticle => {
-            if (priorityArticle.id !== article.id && linkedArticles.length < 5) {
-                linkedArticles.push(priorityArticle);
+        // 1. الربط مع مقالات السلطة
+        authorityArticles.forEach(authArticle => {
+            if (linkedArticles.length < linksPerArticle && authArticle.id !== article.id) {
+                if (!linkedArticles.some(linked => linked.id === authArticle.id)) {
+                    linkedArticles.push(authArticle);
+                }
             }
         });
-        
+
+        // 2. إذا لم نصل للحد المطلوب، نكمل من باقي المقالات
         otherArticles.forEach(otherArticle => {
-            if (otherArticle.id !== article.id && linkedArticles.length < 5) {
-                if (!linkedArticles.some(linked => linked.id === otherArticle.id)) {
-                     linkedArticles.push(otherArticle);
+            if (linkedArticles.length < linksPerArticle && otherArticle.id !== article.id) {
+                 if (!linkedArticles.some(linked => linked.id === otherArticle.id)) {
+                    linkedArticles.push(otherArticle);
                 }
             }
         });
@@ -567,21 +574,33 @@ function generateAuthorityLinking() {
 
 function generateClusterLinking() {
     const linkingMap = {};
+    const linksPerArticle = parseInt(document.getElementById('linksPerArticle').value, 10);
     const clusters = clusterArticles(articles);
+
     articles.forEach(article => {
         const linkedArticles = [pillarPage];
-        const articleCluster = clusters.find(cluster => cluster.some(a => a.id === article.id));
-        
-        if (articleCluster) {
-            articleCluster.forEach(clusterArticle => {
-                if (clusterArticle.id !== article.id && linkedArticles.length < 5) {
+        const articleCluster = clusters.find(cluster => cluster.some(a => a.id === article.id)) || [];
+
+        // 1. الربط مع المقالات داخل نفس العنقود
+        articleCluster.forEach(clusterArticle => {
+            if (linkedArticles.length < linksPerArticle && clusterArticle.id !== article.id) {
+                 if (!linkedArticles.some(linked => linked.id === clusterArticle.id)) {
                     linkedArticles.push(clusterArticle);
                 }
-            });
-        }
+            }
+        });
+
+        // 2. إذا لم نصل للحد، نكمل من مقالات خارج العنقود
+        // We will shuffle the articles to get more random links
+        const remainingArticles = articles.filter(art => art.id !== article.id && !articleCluster.some(ca => ca.id === art.id));
         
-        articles.forEach(otherArticle => {
-            if (otherArticle.id !== article.id && linkedArticles.length < 5) {
+        for (let i = remainingArticles.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [remainingArticles[i], remainingArticles[j]] = [remainingArticles[j], remainingArticles[i]];
+        }
+
+        remainingArticles.forEach(otherArticle => {
+            if (linkedArticles.length < linksPerArticle) {
                 if (!linkedArticles.some(linked => linked.id === otherArticle.id)) {
                     linkedArticles.push(otherArticle);
                 }
@@ -592,6 +611,7 @@ function generateClusterLinking() {
     });
     return linkingMap;
 }
+
 
 function clusterArticles(articles) {
     const clusters = [];
