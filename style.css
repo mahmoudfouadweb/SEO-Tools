@@ -1,4 +1,3 @@
-    <style>
         * {
             margin: 0;
             padding: 0;
@@ -357,4 +356,144 @@
                 flex-direction: column;
             }
         }
-    </style>
+ /* --- أنماط مؤشر التحميل --- */
+.generate-btn {
+    position: relative;
+    min-width: 300px; /* ضمان وجود مساحة كافية للمؤشر */
+}
+.spinner {
+    width: 25px;
+    height: 25px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: #fff;
+    animation: spin 1s ease-in-out infinite;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    margin-top: -12.5px;
+    margin-left: -12.5px;
+}
+.generate-btn.loading .spinner {
+    display: block !important;
+}
+.generate-btn.loading .btn-text {
+    visibility: hidden;
+}
+.generate-btn:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* --- أنماط الإعدادات المتقدمة --- */
+#advanced-settings-section {
+    background-color: #fdf8e1;
+    border: 2px solid #f57c00;
+}
+#advanced-settings-section h2 {
+    color: #f57c00;
+}
+details {
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background-color: #fff;
+    margin-top: 15px;
+}
+summary {
+    font-weight: 600;
+    color: #34495e;
+    padding: 15px;
+    cursor: pointer;
+    outline: none;
+    user-select: none;
+    border-radius: 10px;
+    transition: background-color 0.2s ease;
+}
+details[open] > summary {
+    border-bottom: 1px solid #ddd;
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+}
+summary:hover {
+    background-color: #f0f0f0;
+}
+.settings-content {
+    padding: 20px;
+}
+
+/* --- أنماط قسم لوحة قيادة المشروع --- */
+#project-management-section {
+    background-color: #e3f2fd;
+    border: 2px solid #1e88e5;
+}
+#project-management-section h2 {
+    color: #1e88e5;
+}
+
+.project-controls {
+    display: flex;
+    gap: 15px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.dashboard-container {
+    margin-top: 20px;
+    overflow-x: auto; /* للسماح بالتمرير الأفقي على الشاشات الصغيرة */
+}
+
+#dashboardTable {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    font-size: 0.95rem;
+}
+
+#dashboardTable th, #dashboardTable td {
+    border: 1px solid #b0bec5;
+    padding: 12px 15px;
+    text-align: right;
+    vertical-align: middle;
+}
+
+#dashboardTable th {
+    background-color: #546e7a;
+    color: white;
+    font-weight: 600;
+}
+
+#dashboardTable tr:nth-child(even) {
+    background-color: #eceff1;
+}
+
+#dashboardTable tr:hover {
+    background-color: #cfd8dc;
+}
+
+/* نمط خاص بالمقالات اليتيمة (مهم جداً) */
+.orphan-article {
+    background-color: #ffebee !important; /* لون أحمر فاتح للخلفية */
+    color: #c62828; /* لون أحمر غامق للنص */
+    font-weight: bold;
+}
+
+.status-badge {
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    color: white;
+    min-width: 80px;
+    text-align: center;
+    display: inline-block;
+}
+
+.status-orphan {
+    background-color: #d32f2f; /* أحمر */
+}
+
+.status-healthy {
+    background-color: #388e3c; /* أخضر */
+}
