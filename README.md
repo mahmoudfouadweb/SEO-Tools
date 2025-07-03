@@ -1,12 +1,9 @@
-# My Awesome Project
+# أدوات SEO للربط الداخلي
 
-This is a project to do awesome things.
+أداة بسيطة وفعالة لإنشاء خطة ربط داخلي (Internal Linking) بين مقالات موقعك بشكل تلقائي.
 
-## Installation
+---
 
-1. Clone the repo: `git clone ...`
-2. Install dependencies: `npm install`
+### **[🚀 اضغط هنا لتجربة الأداة مباشرة 🚀](https://mahmoudfouadweb.github.io/SEO-Tools/)**
 
-## Usage
-
-Run the project using: `npm start`
+---
