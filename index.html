@@ -1,397 +1,50 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
-  <head>
+<html lang="en">
+<head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>أداة إنشاء الروابط الداخلية المتقدمة</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SEO Tools Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="container">
-      <!-- =================== قسم إدارة المشاريع (جديد بالكامل) =================== -->
-      <div class="project-manager-bar">
-        <div class="project-selector-wrapper">
-          <label for="projectSelector">المشروع الحالي:</label>
-          <select id="projectSelector"></select>
-        </div>
-        <div class="project-actions">
-          <input
-            type="text"
-            id="newProjectName"
-            placeholder="اسم المشروع الجديد..."
-          />
-          <button id="addProjectBtn">➕ إضافة مشروع جديد</button>
-          <button id="renameProjectBtn">✏️ إعادة تسمية</button>
-          <button id="deleteProjectBtn" class="danger-btn">
-            ❌ حذف المشروع
-          </button>
-        </div>
-      </div>
-      <!-- =================== نهاية القسم الجديد =================== -->
-      <div class="main-tabs">
-        <button class="main-tab-btn active" data-main-tab="linking-tool">
-          🔗 أداة الربط الداخلي
-        </button>
-        <button class="main-tab-btn" data-main-tab="keyword-manager">
-          📊 مدير الكلمات المفتاحية
-        </button>
-      </div>
-
-      <div class="main-tab-content active" id="linking-tool-content">
-        <div class="header">
-          <h1>أداة إنشاء الروابط الداخلية المتقدمة</h1>
-          <p>
-            إدارة كميات كبيرة من المقالات مع استراتيجيات ربط داخلي متقدمة
-          </p>
-        </div>
-
-        <div class="main-content">
-          <!-- Strategy Selection -->
-          <div class="section">
-
-          <h2>🎯 اختر استراتيجية الربط الداخلي</h2>
-          <div class="strategy-selector">
-            <!-- تم استخدام data-attributes لتحديد نوع الاستراتيجية -->
-            <div class="strategy-card selected" data-strategy="balanced">
-              <div class="badge">موصى به</div>
-              <h3>التوازن المثالي (Round Robin)</h3>
-              <p>
-                كل مقالة تُذكر بنفس العدد تقريباً، توزيع دوري منتظم يضمن عدم
-                وجود مقالات يتيمة
-              </p>
-              <small style="color: #1976d2; display: block; margin-top: 5px"
-                >للمواقع المتوسطة: استخدم "التوازن المثالي" لضمان عدم وجود
-                مقالات يتيمة</small
-              >
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+    <div class="container mx-auto p-8">
+        <header class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-md mb-8">
+            <h1 class="text-3xl font-bold text-center mb-4">SEO Tools Platform</h1>
+            <div class="flex flex-wrap items-center justify-center gap-4">
+                <div class="flex items-center gap-2">
+                    <label for="project-selector" class="font-semibold">Active Project:</label>
+                    <select id="project-selector" 
+                            class="p-2 rounded-md border-gray-300 dark:bg-gray-700 dark:border-gray-600 focus:ring-2 focus:ring-blue-500">
+                    </select>
+                </div>
+                <button id="open-project-btn" 
+                        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-md transition-transform transform hover:scale-105">
+                    📂 Open Project
+                </button>
+                <button id="theme-toggle-btn"
+                        class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md transition-transform transform hover:scale-105">
+                    🌓 Toggle Theme
+                </button>
             </div>
-            <div class="strategy-card" data-strategy="authority">
-              <div class="badge">SEO</div>
-              <h3>تمرير السلطة (Authority Flow)</h3>
-              <p>
-                التركيز على تمرير قوة الصفحة الرئيسية، مع ربط استراتيجي للمقالات
-                الفرعية
-              </p>
-              <small style="color: #388e3c; display: block; margin-top: 5px"
-                >للمواقع الجديدة: استخدم "تمرير السلطة" لتقوية الصفحة
-                الرئيسية</small
-              >
-            </div>
-            <div class="strategy-card" data-strategy="cluster">
-              <div class="badge">متقدم</div>
-              <h3>التجميع الذكي (Smart Clustering)</h3>
-              <p>
-                تجميع المقالات حسب التشابه في الكلمات المفتاحية، ربط أقوى داخل
-                نفس المجموعة
-              </p>
-              <small style="color: #f57c00; display: block; margin-top: 5px"
-                >للمواقع الكبيرة: استخدم "التجميع الذكي" لربط المحتوى
-                المتشابه</small
-              >
-            </div>
-          </div>
-        </div>
+        </header>
 
-        <!-- Input Methods -->
-        <div class="section">
-          <h2>📝 إدخال البيانات</h2>
-          <div class="tabs">
-            <!-- تم استخدام data-attributes لتحديد نوع التبويب -->
-            <button class="tab active" data-tab="bulk">إدخال مجمع</button>
-            <button class="tab" data-tab="manual">إدخال يدوي</button>
-          </div>
-          <div class="tab-content active" id="bulk-content">
-            <!-- ... محتوى الإدخال المجمع كما هو ... -->
-            <textarea
-              class="bulk-input"
-              id="bulkInput"
-              placeholder="سباك صحي السالمية | https://plumbingservicesinkuwait.com/%d8%b3%d8%a8%d8%a7%d9%83-%d8%b5%d8%ad%d9%8a-%d8%a7%d9%84%d8%b3%d8%a7%d9%84%d9%85%d9%8a%d8%a9/ | سباك صحي السالمية"
-            ></textarea>
-          </div>
-          <div class="tab-content" id="manual-content">
-            <div id="manualContainer"></div>
-            <button id="addManualArticleBtn">إضافة مقالة جديدة</button>
-          </div>
-        </div>
-
-        <!-- Pillar Page Section -->
-        <div class="section pillar-section">
-          <!-- ... محتوى المقالة الأساسية كما هو ... -->
-          <h2>🏛️ المقالة الأساسية (Pillar Page)</h2>
-          <div class="form-group">
-            <label>عنوان المقالة الأساسية:</label>
-            <input
-              type="text"
-              id="pillarTitle"
-              placeholder="كاميرات مراقبة الكويت - الدليل الشامل"
-            />
-          </div>
-          <div class="form-group">
-            <label>رابط المقالة الأساسية:</label>
-            <input
-              type="url"
-              id="pillarUrl"
-              placeholder="https://example.com/pillar-page"
-            />
-          </div>
-          <div class="form-group">
-            <label>الكلمة المفتاحية للمقالة الأساسية:</label>
-            <input
-              type="text"
-              id="pillarKeyword"
-              placeholder="كاميرات مراقبة الكويت"
-            />
-          </div>
-        </div>
-        <div class="section" id="advanced-settings-section">
-          <h2>⚙️ إعدادات متقدمة (اختياري)</h2>
-          <details>
-            <summary>انقر هنا لتخصيص نصوص الربط وعدد الروابط</summary>
-            <div class="settings-content">
-              <div class="form-group">
-                <label for="linksPerArticle"
-                  >عدد الروابط الداخلية لكل مقال (بالإضافة للرابط
-                  الأساسي):</label
-                >
-                <input
-                  type="number"
-                  id="linksPerArticle"
-                  value="4"
-                  min="1"
-                  style="background: white"
-                />
-              </div>
-              <div class="form-group">
-                <label for="linkingTemplates"
-                  >قوالب نصوص الربط (استخدم `{links}` كعنصر نائب لمجموعة
-                  الروابط)</label
-                >
-                <textarea
-                  id="linkingTemplates"
-                  class="bulk-input"
-                  style="min-height: 150px; font-size: 0.9rem"
-                >
-نحن نسعى دائماً لتقديم أفضل الخدمات المتكاملة في جميع أنحاء المنطقة، حيث نوفر لعملائنا الكرام {links} بأعلى معايير الجودة والاحترافية المطلوبة.
-لضمان توفير حماية شاملة ومتكاملة، فإننا لا نقتصر على تقديم خدماتنا في منطقة واحدة فقط، بل نعتبر أنفسنا جزءاً من شبكة واسعة ومتخصصة تقدم {links} لتلبية جميع احتياجاتكم.
-يمكنكم الاعتماد على خبراتنا الواسعة والمتنوعة في مختلف المجالات المتخصصة، حيث نقدم لكم {links} مع ضمان الحصول على أفضل النتائج والخدمات المتميزة.
-نحن فخورون بكوننا جزءاً من منظومة متكاملة من الخدمات المتخصصة، والتي تشمل {links} لضمان تقديم حلول شاملة ومبتكرة تلبي جميع متطلباتكم بكفاءة عالية.
-بفضل شبكة خدماتنا المتطورة والمتنوعة، نضمن لكم الحصول على {links} التي تتميز بالجودة العالية والاحترافية المطلقة في جميع مراحل التنفيذ.
-تتميز خدماتنا بالشمولية والتكامل، حيث نوفر لعملائنا الكرام {links} مع الحرص على تطبيق أحدث المعايير التقنية والمهنية في كل مشروع.</textarea
-                >
-                <small style="color: #555; display: block; margin-top: 5px"
-                  >ضع كل قالب في سطر منفصل. الأداة ستختار واحداً بشكل عشوائي لكل
-                  مقال.</small
-                >
-              </div>
+        <main id="main-content" class="bg-white dark:bg-gray-800 rounded-lg shadow-md">
+            <div class="border-b border-gray-200 dark:border-gray-700 p-4">
+                <h2 class="text-xl font-semibold mb-4">Available Tools</h2>
+                <div class="flex gap-4">
+                    <button class="tool-btn" data-tool="internal-linking">Internal Linking Tool</button>
+                    <button class="tool-btn" data-tool="keyword-extractor">Keyword Extractor</button>
+                    <button class="tool-btn" data-tool="keyword-manager">Keyword Manager</button>
+                </div>
             </div>
-          </details>
-        </div>
-        <!-- Generate Button -->
-        <div style="text-align: center">
-          <!-- تم إضافة ID للزر الرئيسي -->
-          <button class="generate-btn" id="generateBtn">
-            <span class="btn-text">🚀 إنشاء الروابط الداخلية المتقدمة</span>
-            <span class="spinner" style="display: none"></span>
-          </button>
-          <button id="clearBtn" style="background: #7f8c8d; margin-top: 15px">
-            🧹 مسح جميع الحقول والنتائج</button
-          >>
-        </div>
-        <!-- =================== قسم لوحة قيادة المشروع (جديد بالكامل) =================== -->
-        <div class="section" id="project-management-section">
-          <h2>📊 لوحة قيادة المشروع وحالة المقالات</h2>
-
-          <!-- أزرار التحكم بالمشروع -->
-          <div class="project-controls">
-            <button id="saveProjectBtn">💾 حفظ المشروع الحالي</button>
-            <button id="clearProjectBtn" style="background: #c0392b">
-              🗑️ مسح المشروع المحفوظ والبدء من جديد
-            </button>
-          </div>
-          <p
-            class="help-text"
-            style="
-              margin-top: 15px;
-              background: #e8f5e9;
-              border-left-color: #27ae60;
-            "
-          >
-            سيتم حفظ قائمة مقالاتك وإعداداتك في متصفحك. عند العودة مرة أخرى،
-            سيتم تحميل كل شيء تلقائيًا.
-          </p>
-
-          <!-- جدول تحليل المقالات -->
-          <div class="dashboard-container" id="projectDashboard">
-            <!-- سيتم ملء الجدول هنا بواسطة الجافاسكريبت -->
-          </div>
-        </div>
-        <!-- =================== نهاية القسم الجديد =================== -->
-        <!-- Results Section -->
-        <div class="results" id="resultsSection">
-          <!-- ... محتوى النتائج كما هو ... -->
-          <div class="results-section">
-            <h2>📈 إحصائيات الربط الداخلي</h2>
-            <div class="stats" id="statsContainer"></div>
-          </div>
-          <div class="results-section">
-            <h2>🔗 النتائج - الروابط الداخلية</h2>
-            <div id="resultsContainer"></div>
-          </div>
-        </div>
-
-        <!-- NEW FORMATTER TOOL -->
-        <div class="section" style="background-color: #e3f2fd">
-          <h2 style="color: #1e88e5">
-            ✨ أداة تنسيق الروابط الداخلية بالكلمات المفتاحية والرابط
-          </h2>
-          <div class="formatter-grid">
-            <div>
-              <label for="formatTitles">العناوين (كل عنوان في سطر)</label>
-              <textarea
-                id="formatTitles"
-                class="bulk-input"
-                style="min-height: 200px"
-              ></textarea>
-            </div>
-            <div>
-              <label for="formatUrls">الروابط (كل رابط في سطر)</label>
-              <textarea
-                id="formatUrls"
-                class="bulk-input"
-                style="min-height: 200px; direction: ltr; text-align: left"
-              ></textarea>
-            </div>
-            <div>
-              <label for="formatKeywords"
-                >الكلمات المفتاحية (كل كلمة في سطر)</label
-              >
-              <textarea
-                id="formatKeywords"
-                class="bulk-input"
-                style="min-height: 200px"
-              ></textarea>
-            </div>
-          </div>
-          <div style="text-align: center; margin-top: 20px">
-            <!-- تم إضافة IDs للأزرار وإزالة onclick -->
-            <button id="formatCombineBtn">🔧 تنسيق ودمج</button>
-            <button id="clearFormatterBtn" style="background: #95a5a6">
-              مسح الحقول
-            </button>
-          </div>
-          <div style="margin-top: 20px">
-            <label for="formattedOutput">النتيجة المنسقة (جاهزة للنسخ)</label>
-            <textarea
-              id="formattedOutput"
-              class="bulk-input"
-              readonly
-              style="min-height: 200px; background-color: #f0f0f0"
-            ></textarea>
-            <button class="copy-btn" id="copyFormattedBtn">
-              نسخ النتيجة إلى الحافظة
-            </button>
-          </div>
-        </div>
-      </div>
+            <div id="tool-content" class="p-6"></div>
+        </main>
     </div>
 
-    <div class="main-tab-content" id="keyword-manager-content">
-      <div class="header">
-        <h1>📊 مدير الكلمات المفتاحية</h1>
-        <p>
-          أدخل جميع الكلمات المفتاحية لموقعك لتتبعها والحصول على تحليل شامل
-        </p>
-      </div>
-      <div class="section">
-        <h2>قائمة الكلمات المفتاحية الرئيسية</h2>
-        <p>
-          أدخل هنا جميع الكلمات المفتاحية التي تستهدفها في موقعك، كل كلمة في سطر
-          جديد.
-        </p>
-        <textarea
-          id="masterKeywordsInput"
-          class="bulk-input"
-          placeholder="كلمة مفتاحية 1
-كلمة مفتاحية 2
-كلمة مفتاحية 3..."
-          style="min-height: 250px"
-        ></textarea>
-        <div style="text-align: center; margin-top: 20px">
-          <button id="saveKeywordsBtn" class="generate-btn">
-            💾 حفظ وتحليل الكلمات
-          </button>
-        </div>
-      </div>
-      <div class="section">
-        <h2>لوحة متابعة الكلمات المفتاحية</h2>
-        <div class="dashboard-container" id="keywordDashboard">
-          <!-- سيتم ملء الجدول هنا بواسطة الجافاسكريبت -->
-          <p>
-            لم يتم تحليل أي كلمات بعد. يرجى إدخال الكلمات في الأعلى ثم الضغط على
-            زر الحفظ والتحليل.
-          </p>
-        </div>
-      </div>
-    </div>
-
-
-    <div class="container">
-      <header class="header">
-        <h1>أدوات SEO لاستخراج الكلمة المفتاحية من الرابط</h1>
-      </header>
-
-      <main class="main-content">
-        <section class="section">
-          <h2>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <path d="m13 17-5-5 5-5" />
-              <path d="m6 17-5-5 5-5" />
-            </svg>
-            أداة تهيئة الروابط
-          </h2>
-
-          <div class="formatter-grid">
-            <!-- Column 1: Input -->
-            <div>
-              <label for="urlsInput">الروابط (رابط في كل سطر)</label>
-              <textarea
-                id="urlsInput"
-                rows="15"
-                placeholder="https://example.com/سباك-صحي-السالمية/
-https://example.com/سباك-هندي/
-..."
-              ></textarea>
-              <button id="convertBtn">تهيئة المخرجات</button>
-            </div>
-
-            <!-- Column 2: Output -->
-            <div class="results-container">
-              <label for="output">المخرجات جاهزة للنسخ</label>
-              <textarea
-                id="output"
-                rows="15"
-                readonly
-                placeholder="ستظهر النتائج هنا..."
-              ></textarea>
-              <button id="copyBtn" class="copy-btn" style="display: none">
-                نسخ النتائج
-              </button>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <!-- استدعاء ملف الجافاسكريبت في نهاية الصفحة مع defer -->
-    <script src="script.js" defer></script>
-  </body>
+    <script type="module" src="src/App.js"></script>
+</body>
 </html>

@@ -10,3 +10,6 @@ logs
 
 # Build folder
 /dist
+
+# Gemini suggestions
+suggestions.md
