@@ -4,11 +4,9 @@ import { ToolManager } from './managers/ToolManager.js';
 
 export class App {
     constructor() {
-        console.log('App.js: App constructor has been called.');
         this.stateManager = new StateManager();
         this.uiManager = new UIManager(this.stateManager);
         this.toolManager = new ToolManager(this.stateManager);
-        
         // Handle events from UI Manager
         this.uiManager.on('event', this.handleUIEvent.bind(this));
     }
@@ -25,7 +23,6 @@ export class App {
     }
 
     async handleUIEvent(event) {
-        console.log('Handling UI event:', event);
         try {
             switch (event.type) {
                 case 'add-keywords':
@@ -82,6 +79,17 @@ export class App {
                     this.stateManager.setCurrentTool(event.payload);
                     break;
 
+                case 'add-to-exclude-filter': {
+                    // Get the current state for the keyword extractor tool
+                    const toolState = this.stateManager.getToolState('keyword-extractor') || {};
+                    // Get the current exclusion list or an empty array
+                    const currentExcluded = toolState.manualExcludedWords || [];
+                    // Merge the current list with the new words from the event, removing duplicates
+                    const newExcluded = Array.from(new Set([...currentExcluded, ...event.payload]));
+                    // Update the tool's state with the new list
+                    this.stateManager.setToolState('keyword-extractor', { manualExcludedWords: newExcluded });
+                    break;
+                }
                 default:
                     console.warn('Unknown event type:', event.type);
             }
@@ -91,6 +99,3 @@ export class App {
         }
     }
 }
-
-// Log when the script is loaded
-console.log('App.js script loaded');
