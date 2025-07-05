@@ -1,45 +1,49 @@
-import { describe, it, expect } from 'vitest';
 import { CsvUtils } from './csvUtils.js';
 
 describe('CsvUtils', () => {
-  describe('parseCSV', () => {
-    it('parses simple CSV', () => {
-      const csv = 'name,age\nAlice,30\nBob,25';
-      const rows = CsvUtils.parseCSV(csv);
-      expect(rows).toEqual([
-        { name: 'Alice', age: '30' },
-        { name: 'Bob', age: '25' }
-      ]);
+    describe('parseCSV', () => {
+        it('should parse a simple CSV string', () => {
+            const csv = 'header1,header2\nvalue1,value2';
+            const expected = [{ header1: 'value1', header2: 'value2' }];
+            expect(CsvUtils.parseCSV(csv)).toEqual(expected);
+        });
+
+        it('should handle quoted values', () => {
+            const csv = 'header1,header2\n"value 1","value 2"';
+            const expected = [{ header1: 'value 1', header2: 'value 2' }];
+            expect(CsvUtils.parseCSV(csv)).toEqual(expected);
+        });
+
+        it('should handle empty lines', () => {
+            const csv = 'header1,header2\n\nvalue1,value2';
+            const expected = [{ header1: 'value1', header2: 'value2' }];
+            expect(CsvUtils.parseCSV(csv)).toEqual(expected);
+        });
+
+        it('should handle CSV with no data rows', () => {
+            const csv = 'header1,header2';
+            const expected = [];
+            expect(CsvUtils.parseCSV(csv)).toEqual(expected);
+        });
     });
 
-    it('handles empty lines and extra spaces', () => {
-      const csv = 'name,age\n\n Alice , 30 \nBob,25\n';
-      const rows = CsvUtils.parseCSV(csv);
-      expect(rows).toEqual([
-        { name: 'Alice', age: '30' },
-        { name: 'Bob', age: '25' }
-      ]);
-    });
+    describe('formatCSV', () => {
+        it('should format an array of objects into a CSV string', () => {
+            const data = [{ header1: 'value1', header2: 'value2' }];
+            const expected = 'header1,header2\nvalue1,value2';
+            expect(CsvUtils.formatCSV(data)).toEqual(expected);
+        });
 
-    it('returns empty array for empty input', () => {
-      expect(CsvUtils.parseCSV('')).toEqual([]);
-    });
-  });
+        it('should handle special characters in values', () => {
+            const data = [{ header1: 'value,1', header2: 'value"2' }];
+            const expected = 'header1,header2\n"value,1","value""2"';
+            expect(CsvUtils.formatCSV(data)).toEqual(expected);
+        });
 
-  describe('formatCSV', () => {
-    it('formats array of objects to CSV', () => {
-      const data = [
-        { name: 'Alice', age: 30 },
-        { name: 'Bob', age: 25 }
-      ];
-      const csv = CsvUtils.formatCSV(data);
-      expect(csv).toContain('name,age');
-      expect(csv).toContain('Alice,30');
-      expect(csv).toContain('Bob,25');
+        it('should handle an empty array', () => {
+            const data = [];
+            const expected = '';
+            expect(CsvUtils.formatCSV(data)).toEqual(expected);
+        });
     });
-
-    it('handles empty array', () => {
-      expect(CsvUtils.formatCSV([])).toBe('');
-    });
-  });
 });

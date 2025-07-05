@@ -1,57 +1,124 @@
-import { EventEmitter } from '/src/utils/EventEmitter.js';
-import { CsvUtils } from '/src/utils/csvUtils.js';
-import { KeywordManagerDashboard } from '/src/views/KeywordManagerDashboard.js';
+import { EventEmitter } from 
+'/src/utils/EventEmitter.js';
+import { CsvUtils } from 
+'/src/utils/csvUtils.js';
+import { KeywordManagerDashboard } from 
+'/src/views/KeywordManagerDashboard.js';
 
 export class UIManager extends EventEmitter {
     constructor(stateManager, toolManager) {
         super();
         this.stateManager = stateManager;
-        this.toolManager = toolManager; // toolManager is now passed in
+        this.toolManager = toolManager; 
         this.views = {
-            // Pass `this` (the UIManager instance) to the dashboard
             keywordManager: new KeywordManagerDashboard(this)
         };
         this.stateManager.on('state-change', this.handleStateChange.bind(this));
         this.attachEventListeners();
+        this.initErrorDisplay();
+    }
+
+    initErrorDisplay() {
+        let errorDisplay = document.getElementById('error-display');
+        if (!errorDisplay) {
+            errorDisplay = document.createElement('div');
+            errorDisplay.id = 'error-display';
+            errorDisplay.className = 'fixed bottom-4 right-4 bg-red-600 text-white p-3 rounded shadow-lg hidden';
+            document.body.appendChild(errorDisplay);
+        }
+        this.errorDisplay = errorDisplay;
     }
 
     attachEventListeners() {
         document.addEventListener('click', (e) => {
-            // Global tool selection
             if (e.target.matches('.tool-btn')) {
                 const toolId = e.target.dataset.tool;
-                this.emit('event', { type: 'select-tool', payload: toolId });
+                this.emit('event', { type: 'select-tool', payload: { toolId } });
                 return;
             }
 
-            // Keyword Extractor Tool actions
             if (e.target.id === 'run-extractor-btn') {
-                this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor' } });
+                const inputType = document.getElementById('extractor-input-type').value;
+                const maxKeywordsPerUrl = parseInt(document.getElementById('extractor-max-keywords').value, 10);
+                const minKeywordLength = parseInt(document.getElementById('extractor-min-length').value, 10);
+                const excludeNumbers = document.getElementById('extractor-exclude-numbers').checked;
+                
+                let inputData = {
+                    config: {
+                        inputType,
+                        maxKeywordsPerUrl,
+                        minKeywordLength,
+                        excludeNumbers
+                    }
+                };
+
+                if (inputType === 'sitemap') {
+                    const sitemapUrl = document.getElementById('extractor-sitemap').value.trim();
+                    if (!sitemapUrl) {
+                        this.showError('Sitemap URL cannot be empty.');
+                        return;
+                    }
+                    inputData.sitemapUrl = sitemapUrl;
+                } else {
+                    const urls = document.getElementById('extractor-urls').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                    if (urls.length === 0) {
+                        this.showError('URLs cannot be empty.');
+                        return;
+                    }
+                    inputData.urls = urls;
+                }
+
+                if (isNaN(maxKeywordsPerUrl) || maxKeywordsPerUrl < 1) {
+                    this.showError('Max Keywords/URL must be a number greater than 0.');
+                    return;
+                }
+                if (isNaN(minKeywordLength) || minKeywordLength < 1) {
+                    this.showError('Min Keyword Length must be a number greater than 0.');
+                    return;
+                }
+
+                this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor', inputData } });
                 return;
             }
 
-            // Internal Linking Tool actions
             if (e.target.id === 'run-linking-btn') {
-                this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking' } });
+                const lines = document.getElementById('linking-keywords').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+                if (lines.length === 0) {
+                    this.showError('Linking keywords/URLs cannot be empty.');
+                    return;
+                }
+                const articles = lines.map(line => {
+                    const [keyword, url] = line.split(',');
+                    if (!keyword || !url) {
+                        this.showError('Each line for internal linking must contain a keyword and a URL separated by a comma.');
+                        return null;
+                    }
+                    return { keyword: keyword.trim(), url: url.trim() };
+                }).filter(Boolean);
+
+                if (articles.length === 0 && lines.length > 0) { // Some lines were invalid
+                    return; // Error already shown by map function
+                }
+
+                this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
                 return;
             }
 
-            // Export CSV button
             if (e.target.id === 'export-csv-btn') {
                 this.emit('event', { type: 'export-csv' });
                 return;
             }
             
-            // Project Management UI actions
             if (e.target.id === 'create-first-project-btn') {
                  const projectName = document.getElementById('first-project-name').value.trim();
-                if (projectName) {
-                    this.emit('event', { type: 'create-project', payload: { projectName } });
+                if (!projectName) {
+                    this.showError('Project name cannot be empty.');
+                    return;
                 }
+                this.emit('event', { type: 'create-project', payload: { projectName } });
                 return;
             }
 
-            // Delegate to active view if it has a handler
             const activeProject = this.stateManager.getActiveProject();
             if (activeProject) {
                 const currentViewKey = activeProject.currentTool;
@@ -63,18 +130,17 @@ export class UIManager extends EventEmitter {
         });
 
         document.addEventListener('change', (e) => {
-            // Project Selector
             if (e.target.id === 'project-selector') {
                 const projectId = e.target.value;
                 this.emit('event', { type: 'set-active-project', payload: { projectId } });
             }
 
-            // Keyword Extractor Tool settings
             if (e.target.matches('#extractor-input-type, #extractor-exclude-numbers')) {
-                this.emit('event', { type: 'extractor-setting-changed' });
+                const inputType = document.getElementById('extractor-input-type').value;
+                const excludeNumbers = document.getElementById('extractor-exclude-numbers').checked;
+                this.emit('event', { type: 'extractor-setting-changed', payload: { inputType, excludeNumbers } });
             }
 
-            // Delegate to active view if it has a handler
             const activeProject = this.stateManager.getActiveProject();
             if (activeProject) {
                 const currentViewKey = activeProject.currentTool;
@@ -104,7 +170,6 @@ export class UIManager extends EventEmitter {
 
         if (projectList.length === 0) {
             toolContent.innerHTML = this.renderCreateFirstProject();
-            // No need for separate listener attachment here, main listener handles it.
             return;
         }
         
@@ -117,19 +182,21 @@ export class UIManager extends EventEmitter {
             switch (activeProject.currentTool) {
                 case 'keyword-manager':
                     toolContent.innerHTML = this.views.keywordManager.render(activeProject);
+                    this.updateExportButtonState(activeProject.masterKeywords);
                     break;
                 case 'keyword-extractor':
                     this.renderKeywordExtractorView(toolContent, activeProject);
                     break;
                 case 'internal-linking':
-                    this.renderInternalLinkingView(toolContent, state); // Note: might need activeProject too
+                    this.renderInternalLinkingView(toolContent, state);
                     break;
                 default:
                     toolContent.innerHTML = this.renderWelcome();
             }
+            this.hideError(); // Hide error on successful render
         } catch (error) {
             console.error('Error rendering UI:', error);
-            toolContent.innerHTML = `<div class="error-message">Error rendering UI: ${error.message}</div>`;
+            this.showError(`Error rendering UI: ${error.message}`);
         }
     }
 
@@ -148,10 +215,12 @@ export class UIManager extends EventEmitter {
                         <option value="sitemap" ${toolState.inputType === 'sitemap' ? 'selected' : ''}>Sitemap.xml URL</option>
                     </select>
                 </div>
-                <div id="extractor-urls-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'none' : 'block'};">
+                <div id="extractor-urls-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'none' : 'block'};
+">
                     <textarea id="extractor-urls" class="w-full border p-2" rows="4" placeholder="Enter URLs, one per line..."></textarea>
                 </div>
-                <div id="extractor-sitemap-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'block' : 'none'};">
+                <div id="extractor-sitemap-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'block' : 'none'};
+">
                     <input id="extractor-sitemap" class="w-full border p-2" placeholder="https://example.com/sitemap.xml"/>
                 </div>
                 <div class="mb-2 flex gap-4">
@@ -179,6 +248,7 @@ export class UIManager extends EventEmitter {
                 <h2 class="font-bold text-lg mb-2">Internal Linking Tool</h2>
                 <p class="mb-2">Paste the article content below to find linking opportunities based on your master keyword list.</p>
                 <textarea id="linking-content" class="w-full border p-2 mb-2" rows="10" placeholder="Paste article content here..."></textarea>
+                <textarea id="linking-keywords" class="w-full border p-2 mb-2" rows="5" placeholder="Enter keywords and URLs for linking, one per line (e.g., keyword,https://example.com/article)..."></textarea>
                 <button id="run-linking-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Analyze</button>
                 <div id="linking-results" class="mt-4"></div>
             </div>
@@ -214,8 +284,34 @@ export class UIManager extends EventEmitter {
         `;
     }
 
+    updateExportButtonState(keywords) {
+        const exportBtn = document.getElementById('export-csv-btn');
+        if (exportBtn) {
+            if (!keywords || keywords.length === 0) {
+                exportBtn.disabled = true;
+                exportBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
+                exportBtn.classList.remove('bg-teal-600', 'hover:bg-teal-700');
+            } else {
+                exportBtn.disabled = false;
+                exportBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
+                exportBtn.classList.add('bg-teal-600', 'hover:bg-teal-700');
+            }
+        }
+    }
+
     showError(message) {
-        // A more robust error display could be implemented here, e.g., a toast notification.
-        alert(`Error: ${message}`);
+        this.errorDisplay.textContent = message;
+        this.errorDisplay.classList.remove('hidden');
+        // Optionally hide after some time
+        setTimeout(() => {
+            this.hideError();
+        }, 5000);
+    }
+
+    hideError() {
+        this.errorDisplay.classList.add('hidden');
+        this.errorDisplay.textContent = '';
     }
 }
+
+

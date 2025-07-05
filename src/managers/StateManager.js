@@ -1,4 +1,5 @@
-import { EventEmitter } from '/src/utils/EventEmitter.js';
+import { EventEmitter } from 
+'/src/utils/EventEmitter.js';
 
 export class StateManager extends EventEmitter {
     constructor() {
@@ -42,6 +43,30 @@ export class StateManager extends EventEmitter {
         };
     }
 
+    _saveMeta() {
+        const meta = {
+            projects: this.state.projects,
+            activeProjectId: this.state.activeProjectId
+        };
+        localStorage.setItem('seo-platform-meta', JSON.stringify(meta));
+    }
+
+    _saveProjectData(projectId, data) {
+        localStorage.setItem(`project-${projectId}`, JSON.stringify(data));
+    }
+
+    _loadProjectData(projectId) {
+        const projectState = localStorage.getItem(`project-${projectId}`);
+        if (projectState) {
+            try {
+                return JSON.parse(projectState);
+            } catch (e) {
+                console.error(`Error parsing project data for ${projectId}:`, e);
+            }
+        }
+        return { toolStates: {}, masterKeywords: [] };
+    }
+
     createProject(name) {
         const project = {
             id: crypto.randomUUID(),
@@ -49,21 +74,21 @@ export class StateManager extends EventEmitter {
             createdAt: new Date().toISOString()
         };
         
-        // Initialize empty project data
         const projectData = {
             toolStates: {},
             masterKeywords: []
         };
         
-        // Save project data to localStorage
-        localStorage.setItem(`project-${project.id}`, JSON.stringify(projectData));
+        this._saveProjectData(project.id, projectData);
         
-        // Update meta info
-        this.setState({
-            projects: [...this.state.projects, project],
-            activeProjectId: project.id,
-            currentTool: 'keyword-manager'
-        });
+        this.state.projects = [...this.state.projects, project];
+        this.state.activeProjectId = project.id;
+        this.state.currentTool = 'keyword-manager';
+        this.state.masterKeywords = projectData.masterKeywords;
+        this.state.toolStates = new Map(Object.entries(projectData.toolStates));
+
+        this._saveMeta();
+        this.emit('state-change', this.state);
         
         return project;
     }
@@ -81,84 +106,59 @@ export class StateManager extends EventEmitter {
         if (!this.state.projects.some(p => p.id === projectId)) {
             throw new Error(`Project with id ${projectId} not found`);
         }
-        this.setState({ activeProjectId: projectId });
+        this.state.activeProjectId = projectId;
+        const projectData = this._loadProjectData(projectId);
+        this.state.masterKeywords = projectData.masterKeywords;
+        this.state.toolStates = new Map(Object.entries(projectData.toolStates));
+
+        this._saveMeta();
+        this.emit('state-change', this.state);
     }
 
     deleteProject(projectId) {
-        // Remove project data from localStorage
         localStorage.removeItem(`project-${projectId}`);
         
         const updatedProjects = this.state.projects.filter(p => p.id !== projectId);
-        const updates = { projects: updatedProjects };
+        this.state.projects = updatedProjects;
         
-        // If we're deleting the active project, switch to another one
         if (this.state.activeProjectId === projectId) {
-            updates.activeProjectId = updatedProjects.length > 0 ? updatedProjects[0].id : null;
+            this.state.activeProjectId = updatedProjects.length > 0 ? updatedProjects[0].id : null;
+            if (this.state.activeProjectId) {
+                const newActiveProjectData = this._loadProjectData(this.state.activeProjectId);
+                this.state.masterKeywords = newActiveProjectData.masterKeywords;
+                this.state.toolStates = new Map(Object.entries(newActiveProjectData.toolStates));
+            } else {
+                this.state.masterKeywords = [];
+                this.state.toolStates = new Map();
+            }
         }
         
-        // Update the state without persisting any project data
-        this.state = {
-            ...this.state,
-            ...updates
-        };
-        
-        // Persist meta info
-        const meta = {
-            projects: this.state.projects,
-            activeProjectId: this.state.activeProjectId
-        };
-        localStorage.setItem('seo-platform-meta', JSON.stringify(meta));
-        
-        // Emit state change
+        this._saveMeta();
         this.emit('state-change', this.state);
     }
 
     getState() {
-        // Always get the current project's data from localStorage to ensure we have the latest version
-        if (this.state.activeProjectId) {
-            const currentProjectData = localStorage.getItem(`project-${this.state.activeProjectId}`);
-            if (currentProjectData) {
-                try {
-                    const projectData = JSON.parse(currentProjectData);
-                    return {
-                        ...this.state,
-                        masterKeywords: projectData.masterKeywords || [],
-                        toolStates: new Map(Object.entries(projectData.toolStates || {}))
-                    };
-                } catch (e) {
-                    // Invalid data, return current state
-                }
-            }
-        }
-        
         return this.state;
     }
 
-    setState(newState) {
-        // Extract just the meta fields (projects and activeProjectId) from newState
-        const metaFields = {};
-        if (newState.projects !== undefined) {
-            metaFields.projects = newState.projects;
+    _updateStateAndPersist(updates) {
+        // Apply updates to the current state
+        Object.assign(this.state, updates);
+
+        // Persist meta data if projects or activeProjectId changed
+        if (updates.projects !== undefined || updates.activeProjectId !== undefined) {
+            this._saveMeta();
         }
-        if (newState.activeProjectId !== undefined) {
-            metaFields.activeProjectId = newState.activeProjectId;
+
+        // Persist active project data if masterKeywords or toolStates changed
+        if (this.state.activeProjectId && (updates.masterKeywords !== undefined || updates.toolStates !== undefined)) {
+            const projectData = {
+                masterKeywords: this.state.masterKeywords,
+                toolStates: Object.fromEntries(this.state.toolStates)
+            };
+            this._saveProjectData(this.state.activeProjectId, projectData);
         }
         
-        // Create a new state object with just the meta fields
-        const newStateCopy = {
-            ...this.state,
-            ...metaFields
-        };
-        
-        // Save meta info
-        const meta = {
-            projects: newStateCopy.projects,
-            activeProjectId: newStateCopy.activeProjectId
-        };
-        localStorage.setItem('seo-platform-meta', JSON.stringify(meta));
-        
-        // Update the state without touching project-specific data
-        this.state = newStateCopy;
         this.emit('state-change', this.state);
     }
 
@@ -168,45 +168,15 @@ export class StateManager extends EventEmitter {
             throw new Error('No active project');
         }
 
-        // Get the current project's data from localStorage
-        const currentProjectData = localStorage.getItem(`project-${activeProjectId}`);
-        let projectData = { toolStates: {}, masterKeywords: [] };
-        
-        if (currentProjectData) {
-            try {
-                projectData = JSON.parse(currentProjectData);
-            } catch (e) {
-                // Invalid data, start fresh
-            }
-        }
-
         const newKeywords = keywords.map(k => ({
             id: crypto.randomUUID(),
             ...k,
             createdAt: new Date().toISOString()
         }));
 
-        // Update only the active project's keywords
-        const updatedProjectData = {
-            toolStates: projectData.toolStates,
-            masterKeywords: [...(projectData.masterKeywords || []), ...newKeywords]
-        };
-
-        localStorage.setItem(
-            `project-${activeProjectId}`,
-            JSON.stringify(updatedProjectData)
-        );
-
-        // Create a new state object with just the current project's keywords
-        const currentState = this.getState();
-        const newState = {
-            ...currentState,
-            masterKeywords: updatedProjectData.masterKeywords
-        };
-        
-        // Update the state
-        this.state = newState;
-        this.emit('state-change', this.state);
+        this._updateStateAndPersist({
+            masterKeywords: [...this.state.masterKeywords, ...newKeywords]
+        });
         
         return newKeywords;
     }
@@ -229,7 +199,7 @@ export class StateManager extends EventEmitter {
             updatedAt: new Date().toISOString()
         };
 
-        this.setState({ masterKeywords: updatedKeywords });
+        this._updateStateAndPersist({ masterKeywords: updatedKeywords });
         
         return updatedKeywords[keywordIndex];
     }
@@ -240,7 +210,7 @@ export class StateManager extends EventEmitter {
             throw new Error('No active project');
         }
 
-        this.setState({
+        this._updateStateAndPersist({
             masterKeywords: this.state.masterKeywords.filter(k => k.id !== id)
         });
     }
@@ -248,12 +218,11 @@ export class StateManager extends EventEmitter {
     setToolState(toolId, state) {
         const toolStates = new Map(this.state.toolStates);
         const currentState = toolStates.get(toolId) || {};
-        // Merge new state with current state
         toolStates.set(toolId, {
             ...currentState,
             ...state
         });
-        this.setState({ toolStates });
+        this._updateStateAndPersist({ toolStates });
     }
 
     getToolState(toolId) {
@@ -261,10 +230,11 @@ export class StateManager extends EventEmitter {
     }
 
     setCurrentTool(toolId) {
-        this.setState({ currentTool: toolId });
+        this._updateStateAndPersist({ currentTool: toolId });
     }
 
     getActiveProjectId() {
         return this.state.activeProjectId;
     }
 }
+

@@ -1,6 +1,11 @@
-import { StateManager } from '/src/managers/StateManager.js';
-import { UIManager } from '/src/managers/UIManager.js';
-import { ToolManager } from '/src/managers/ToolManager.js';
+import { StateManager } from 
+'/src/managers/StateManager.js';
+import { UIManager } from 
+'/src/managers/UIManager.js';
+import { ToolManager } from 
+'/src/managers/ToolManager.js';
+import { CsvUtils } from 
+'/src/utils/csvUtils.js';
 
 export class App {
     constructor() {
@@ -9,6 +14,8 @@ export class App {
         this.uiManager = new UIManager(this.stateManager, this.toolManager);
         // Handle events from UI Manager
         this.uiManager.on('event', this.handleUIEvent.bind(this));
+        this.uiManager.on('tool-result', this.handleToolResult.bind(this));
+        this.uiManager.on('error', this.handleUIError.bind(this));
     }
 
     async init() {
@@ -25,7 +32,8 @@ export class App {
             await this.uiManager.render(this.stateManager.getState());
             return true;
         } catch (error) {
-            console.error('Error initializing app:', error);
+            console.error('Error initializing application:', error);
+            this.uiManager.showError(`Error initializing application: ${error.message}`);
             throw error;
         }
     }
@@ -59,90 +67,20 @@ export class App {
                     break;
 
                 case 'run-tool': {
-                    // Gather input data from DOM based on toolId
-                    let inputData = {};
-                    if (event.payload.toolId === 'keyword-extractor') {
-                        const toolState = this.stateManager.getToolState('keyword-extractor') || {};
-                        const config = {
-                            inputType: document.getElementById('extractor-input-type').value,
-                            maxKeywordsPerUrl: parseInt(document.getElementById('extractor-max-keywords').value, 10),
-                            minKeywordLength: parseInt(document.getElementById('extractor-min-length').value, 10),
-                            excludeNumbers: document.getElementById('extractor-exclude-numbers').checked,
-                            manualExcludedWords: toolState.manualExcludedWords || []
-                        };
-                        inputData.config = config;
-                        if (config.inputType === 'sitemap') {
-                            inputData.sitemapUrl = document.getElementById('extractor-sitemap').value.trim();
-                        } else {
-                            inputData.urls = document.getElementById('extractor-urls').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-                        }
-                    } else if (event.payload.toolId === 'internal-linking') {
-                        const lines = document.getElementById('linking-keywords').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-                        const articles = lines.map(line => {
-                            const [keyword, url] = line.split(',');
-                            return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
-                        }).filter(Boolean);
-                        inputData.articles = articles;
-                    }
                     const result = await this.toolManager.runTool(
                         event.payload.toolId,
-                        inputData
+                        event.payload.inputData
                     );
-                    // If tool is Keyword Extractor and extraction was successful, add results to keyword manager
-                    if (event.payload.toolId === 'keyword-extractor' && result.success && result.data && result.data.success) {
-                        const allKeywords = [];
-                        for (const res of result.data.results) {
-                            if (res.success && Array.isArray(res.keywords)) {
-                                res.keywords.forEach(k => {
-                                    if (k.keyword) {
-                                        allKeywords.push({ keyword: k.keyword, url: res.url });
-                                    }
-                                });
-                            }
-                        }
-                        if (allKeywords.length > 0) {
-                            this.stateManager.addKeywords(allKeywords);
-                        }
-                    }
                     this.uiManager.emit('tool-result', result);
                     break;
                 }
                 case 'extractor-setting-changed': {
-                    // Handle extractor settings change and update tool state
-                    const excludeNumbers = document.getElementById('extractor-exclude-numbers')?.checked;
-                    if (excludeNumbers !== undefined) {
-                        this.stateManager.setToolState('keyword-extractor', { excludeNumbers });
-                    }
-                    // Toggle input visibility
-                    const inputTypeSelect = document.getElementById('extractor-input-type');
-                    const urlsGroup = document.getElementById('extractor-urls-group');
-                    const sitemapGroup = document.getElementById('extractor-sitemap-group');
-                    if (inputTypeSelect && urlsGroup && sitemapGroup) {
-                        if (inputTypeSelect.value === 'sitemap') {
-                            sitemapGroup.style.display = '';
-                            urlsGroup.style.display = 'none';
-                        } else {
-                            sitemapGroup.style.display = 'none';
-                            urlsGroup.style.display = '';
-                        }
-                    }
+                    this.stateManager.setToolState('keyword-extractor', event.payload);
                     break;
                 }
                 case 'export-csv': {
                     const activeProject = this.stateManager.getActiveProject();
                     const keywords = activeProject?.masterKeywords || [];
-                    const exportBtn = document.getElementById('export-csv-btn');
-                    if (exportBtn) {
-                        if (!keywords || keywords.length === 0) {
-                            exportBtn.disabled = true;
-                            exportBtn.classList.add('bg-gray-400', 'cursor-not-allowed');
-                            exportBtn.classList.remove('bg-teal-600', 'hover:bg-teal-700');
-                        } else {
-                            exportBtn.disabled = false;
-                            exportBtn.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                            exportBtn.classList.add('bg-teal-600', 'hover:bg-teal-700');
-                        }
-                    }
                     if (keywords && keywords.length > 0) {
                         const csvString = CsvUtils.formatCSV(keywords);
                         CsvUtils.downloadCSV(csvString, `keywords-export-${new Date().toISOString().split('T')[0]}.csv`);
@@ -165,7 +103,6 @@ export class App {
                     break;
 
                 case 'select-tool': {
-                    // Update selected tool in state and re-render UI
                     this.stateManager.setCurrentTool(event.payload.toolId);
                     await this.uiManager.render(this.stateManager.getState());
                     break;
@@ -176,7 +113,35 @@ export class App {
             }
         } catch (error) {
             console.error('Error handling event:', error);
-            this.uiManager.emit('error', error.message);
+            this.uiManager.showError(`Error handling event: ${error.message}`);
         }
     }
+
+    handleToolResult(result) {
+        // If tool is Keyword Extractor and extraction was successful, add results to keyword manager
+        if (result.toolId === 'keyword-extractor' && result.success && result.data && result.data.success) {
+            const allKeywords = [];
+            for (const res of result.data.results) {
+                if (res.success && Array.isArray(res.keywords)) {
+                    res.keywords.forEach(k => {
+                        if (k.keyword) {
+                            allKeywords.push({ keyword: k.keyword, url: res.url });
+                        }
+                    });
+                }
+            }
+            if (allKeywords.length > 0) {
+                this.stateManager.addKeywords(allKeywords);
+            }
+        }
+        // UIManager will handle displaying the tool result to the user
+    }
+
+    handleUIError(message) {
+        // Centralized error handling for UI-related errors, if needed.
+        // For now, UIManager.showError directly handles it.
+        console.error('UI Error:', message);
+    }
 }
+
+

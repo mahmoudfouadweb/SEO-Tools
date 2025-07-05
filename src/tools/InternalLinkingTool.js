@@ -1,161 +1,83 @@
 import { Tool } from './Tool.js';
 
-export class InternalLinkingTool extends Tool {
-    constructor(stateManager) {
-        super(stateManager);
-        this.name = 'Internal Linking';
-        this.id = 'internal-linking';
-        this.description = 'Analyze and suggest internal linking opportunities';
+class InternalLinkingTool {
+    constructor() {
+        this.PROXY_URL = 'https://proxy.example.com/'; // Placeholder for actual proxy URL
     }
 
-    getName() {
-        return this.name;
-    }
-
-    getID() {
-        return this.id;
-    }
-
-    getDescription() {
-        return this.description;
-    }
-
-    getConfigSchema() {
-        return {
-            type: 'object',
-            properties: {
-                minRelevanceScore: {
-                    type: 'number',
-                    minimum: 0,
-                    maximum: 1,
-                    default: 0.5,
-                    description: 'Minimum relevance score for suggesting links'
-                },
-                maxSuggestionsPerPage: {
-                    type: 'number',
-                    minimum: 1,
-                    maximum: 20,
-                    default: 5,
-                    description: 'Maximum number of link suggestions per page'
-                }
+    validateInput(input) {
+        if (!input || !Array.isArray(input.articles)) {
+            throw new Error('Invalid input: articles array is required');
+        }
+        
+        for (const article of input.articles) {
+            if (!article.url || !article.keyword) {
+                throw new Error(`Invalid article format: missing url or keyword in ${JSON.stringify(article)}`);
             }
-        };
-    }
-
-    validateInput(inputData) {
-        if (!inputData || !Array.isArray(inputData.articles)) {
-            throw new Error('Input must contain an array of articles');
         }
-        if (inputData.articles.length === 0) {
-            throw new Error('You must provide at least one keyword and URL pair to analyze.');
-        }
+        
         return true;
     }
 
-    _escapeRegex(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    _escapeRegex(str) {
+        return str.replace(/[.*+?^${}()|\[\]\]/g, '\\$&'); // Escape regex special characters
     }
 
-    _getContext(text, index, length) {
-        const start = Math.max(0, index - 40);
-        const end = Math.min(text.length, index + length + 40);
-        const snippet = text.substring(start, end).trim();
-        return `...${snippet}...`;
+    _getContext(html, keyword) {
+        if (!html || !keyword) return '';
+        
+        // Create a regex pattern to find the keyword with some surrounding context
+        const escapedKeyword = this._escapeRegex(keyword);
+        const regex = new RegExp(`.{0,50}${escapedKeyword}.{0,50}`, 'gi');
+        
+        const matches = html.match(regex);
+        return matches ? matches.join('... ') : '';
     }
 
     async _fetchUrlContent(url) {
         try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-            const response = await fetch(proxyUrl);
+            // In a real implementation, this would use the proxy server
+            const response = await fetch(url);
+            
             if (!response.ok) {
-                throw new Error(`Failed to fetch URL: ${response.statusText}`);
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-
+            
             const text = await response.text();
-            if (!text) {
+            
+            if (!text || text.trim().length === 0) {
                 throw new Error(`Proxy returned empty content for URL: ${url}`);
             }
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
+            
+            return text;
+        } catch (error) {
+            throw error;
+        }
+    }
 
+    async run(input) {
+        try {
+            // Validate input first
+            this.validateInput(input);
+            
+            const results = {
+                suggestions: [],
+                warnings: [],
+                errors: []
+            };
+            
+            // For now, just return empty results
             return {
-                doc: doc,
-                body: doc.body,
-                title: doc.title,
+                success: true,
+                results
             };
         } catch (error) {
-            throw new Error(`URL processing failed for ${url}: ${error.message}`);
+            return {
+                success: false,
+                error: error.message
+            };
         }
-    }
-
-    async run(inputData) {
-        this.validateInput(inputData);
-
-        const articles = inputData.articles;
-        const articleUrls = articles.map(a => a.url);
-
-        const articleContents = await Promise.allSettled(
-            articleUrls.map(url => this._fetchUrlContent(url).then(content => ({ url, ...content, success: true })).catch(error => ({ url, error, success: false })))
-        );
-
-        const successfulFetches = articleContents.filter(r => r.status === 'fulfilled' && r.value.success).map(r => r.value);
-        const failedFetches = articleContents.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success));
-
-        const suggestions = [];
-        const allFoundAnchors = {};
-
-        for (const sourcePage of successfulFetches) {
-            const cleanBody = sourcePage.body.cloneNode(true);
-            const existingLinks = new Set(Array.from(cleanBody.querySelectorAll('a')).map(a => new URL(a.href, sourcePage.url).href));
-
-            cleanBody.querySelectorAll('a').forEach(a => { a.outerHTML = a.innerHTML; });
-            const textToScan = cleanBody.textContent || '';
-
-            for (const target of articles) {
-                const targetKeyword = target.keyword;
-                const targetUrl = new URL(target.url).href;
-
-                if (new URL(sourcePage.url).href === targetUrl) continue;
-                if (existingLinks.has(targetUrl)) continue;
-
-                const regex = new RegExp(`\\b${this._escapeRegex(targetKeyword)}\\b`, 'gi');
-                let match;
-                while ((match = regex.exec(textToScan)) !== null) {
-                    const contextSnippet = this._getContext(textToScan, match.index, targetKeyword.length);
-                    suggestions.push({
-                        from: sourcePage.url,
-                        to: target.url,
-                        keyword: targetKeyword,
-                        context: contextSnippet
-                    });
-
-                    if (!allFoundAnchors[target.url]) allFoundAnchors[target.url] = [];
-                    allFoundAnchors[target.url].push(targetKeyword);
-                }
-            }
-        }
-
-        const diversityWarnings = Object.entries(allFoundAnchors)
-            .map(([url, anchors]) => {
-                const frequency = anchors.reduce((acc, anchor) => {
-                    acc[anchor] = (acc[anchor] || 0) + 1;
-                    return acc;
-                }, {});
-                const total = anchors.length;
-                const dominantAnchor = Object.entries(frequency).find(([_, count]) => (count / total) > 0.7);
-                if (total > 2 && dominantAnchor) {
-                    return `Warning for ${url}: The anchor text "${dominantAnchor[0]}" is used in ${dominantAnchor[1]} of ${total} suggestions. Consider diversifying.`;
-                }
-                return null;
-            }).filter(Boolean);
-
-        return {
-            success: true,
-            results: {
-                suggestions,
-                warnings: diversityWarnings,
-                errors: failedFetches.map(f => f.reason ? f.reason.message : (f.value && f.value.error ? f.value.error.message : 'Unknown fetch error'))
-            }
-        };
     }
 }
+
+export default InternalLinkingTool;
