@@ -49,6 +49,11 @@ export class KeywordExtractorTool extends Tool {
                     default: true,
                     description: 'Exclude numbers (phone numbers, years, etc.)'
                 },
+                excludeCommonWords: {
+                    type: 'boolean',
+                    default: true,
+                    description: 'Exclude common stop words'
+                },
                 manualExcludedWords: {
                     type: 'array',
                     items: { type: 'string' },
@@ -123,6 +128,11 @@ export class KeywordExtractorTool extends Tool {
      * @param {object} config - The tool's configuration for extraction.
      */
     _extractKeywords(content, config) {
+        // Ensure minKeywordLength is a number
+        config.minKeywordLength = Number(config.minKeywordLength);
+        // Default excludeCommonWords to true if not set
+        const excludeCommonWords = config.excludeCommonWords !== false;
+
         const manualExcludedSet = new Set((config.manualExcludedWords || []).map(w => w.toLowerCase()));
         const commonWords = new Set([
             'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from', 'has', 'he',
@@ -134,7 +144,7 @@ export class KeywordExtractorTool extends Tool {
         const textToAnalyze = [
             (content.title || '').repeat(3),
             (content.metaDescription || '').repeat(2),
-            ...content.headings,
+            ...(Array.isArray(content.headings) ? content.headings : []),
             (content.mainContent || '')
         ].join(' ');
 
@@ -153,7 +163,10 @@ export class KeywordExtractorTool extends Tool {
         const generateNgrams = (wordList, n) => {
             const ngrams = [];
             for (let i = 0; i <= wordList.length - n; i++) {
-                ngrams.push(wordList.slice(i, i + n).join(' '));
+                // Avoid n-grams where all words are the same (e.g., 'tools tools')
+                const ngramWords = wordList.slice(i, i + n);
+                if (new Set(ngramWords).size === 1) continue;
+                ngrams.push(ngramWords.join(' '));
             }
             return ngrams;
         };
@@ -168,22 +181,21 @@ export class KeywordExtractorTool extends Tool {
             if (!keyword) return false;
 
             const wordsInKeyword = keyword.split(' ');
-            
             // Filter by length
             if (wordsInKeyword.some(w => w.length < config.minKeywordLength)) return false;
-            
             // Filter by manual exclusion list
             if (wordsInKeyword.some(w => manualExcludedSet.has(w))) return false;
-
-            // Filter n-grams that start or end with a common word
-            if (wordsInKeyword.length > 1) {
-                if (commonWords.has(wordsInKeyword[0]) || commonWords.has(wordsInKeyword[wordsInKeyword.length - 1])) {
-                    return false;
+            // Only filter stop words if excludeCommonWords is true
+            if (excludeCommonWords) {
+                // Filter n-grams that start or end with a common word
+                if (wordsInKeyword.length > 1) {
+                    if (commonWords.has(wordsInKeyword[0]) || commonWords.has(wordsInKeyword[wordsInKeyword.length - 1])) {
+                        return false;
+                    }
+                } else { // Filter single common words
+                    if (commonWords.has(keyword)) return false;
                 }
-            } else { // Filter single common words
-                if (commonWords.has(keyword)) return false;
             }
-
             if (/^(com|net|org|edu|gov|mil|biz|info|name|museum|coop|aero|[a-z]{2,3})$/i.test(keyword)) return false;
             return true;
         });
@@ -202,8 +214,6 @@ export class KeywordExtractorTool extends Tool {
                 const score = freq * (1 + (wordCount - 1) * 0.75);
                 return { keyword, frequency: freq, score };
             })
-            // Filter out single-occurrence single words, which are likely noise
-            .filter(k => k.frequency > 1 || k.keyword.includes(' '))
             .sort((a, b) => b.score - a.score)
             .slice(0, config.maxKeywordsPerUrl);
 
@@ -242,7 +252,8 @@ export class KeywordExtractorTool extends Tool {
                 urls = inputData.urls;
             }
 
-            const results = await Promise.all(urls.map(async url => {
+            // ====== Resilient Crawler: Use Promise.allSettled instead of Promise.all ======
+            const settledResults = await Promise.allSettled(urls.map(async url => {
                 try {
                     let content, keywords;
                     if (isSitemap) {
@@ -282,13 +293,31 @@ export class KeywordExtractorTool extends Tool {
                 }
             }));
 
+            // Separate successful and failed fetches
+            const results = [];
+            const errors = [];
+            for (const res of settledResults) {
+                if (res.status === 'fulfilled') {
+                    const value = res.value;
+                    if (value.success) {
+                        results.push(value);
+                    } else {
+                        errors.push({ url: value.url, error: value.error || 'Unknown error' });
+                    }
+                } else {
+                    // Promise rejected (should be rare)
+                    errors.push({ url: urls[settledResults.indexOf(res)], error: res.reason?.message || 'Unknown error' });
+                }
+            }
+
             return {
                 success: true,
                 results,
+                errors,
                 metadata: {
                     totalUrls: urls.length,
-                    successfulExtractions: results.filter(r => r.success).length,
-                    failedExtractions: results.filter(r => !r.success).length,
+                    successfulExtractions: results.length,
+                    failedExtractions: errors.length,
                     processingTime: new Date().toISOString()
                 }
             };

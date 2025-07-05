@@ -6,8 +6,9 @@ export class UIManager extends EventEmitter {
     constructor(stateManager, toolManager) {
         super();
         this.stateManager = stateManager;
-        this.toolManager = toolManager;
+        this.toolManager = toolManager; // toolManager is now passed in
         this.views = {
+            // Pass `this` (the UIManager instance) to the dashboard
             keywordManager: new KeywordManagerDashboard(this)
         };
         this.stateManager.on('state-change', this.handleStateChange.bind(this));
@@ -25,145 +26,115 @@ export class UIManager extends EventEmitter {
 
             // Keyword Extractor Tool actions
             if (e.target.id === 'run-extractor-btn') {
-                this.handleRunExtractor();
+                this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor' } });
                 return;
             }
 
             // Internal Linking Tool actions
             if (e.target.id === 'run-linking-btn') {
-                this.handleRunLinking();
+                this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking' } });
                 return;
             }
 
             // Export CSV button
             if (e.target.id === 'export-csv-btn') {
-                this.handleExportCsv();
+                this.emit('event', { type: 'export-csv' });
+                return;
+            }
+            
+            // Project Management UI actions
+            if (e.target.id === 'create-first-project-btn') {
+                 const projectName = document.getElementById('first-project-name').value.trim();
+                if (projectName) {
+                    this.emit('event', { type: 'create-project', payload: { projectName } });
+                }
                 return;
             }
 
             // Delegate to active view if it has a handler
-            const currentViewKey = this.stateManager.getState().currentTool;
-            const currentView = this.views[currentViewKey];
-            if (currentView && typeof currentView.handleClick === 'function') {
-                currentView.handleClick(e);
+            const activeProject = this.stateManager.getActiveProject();
+            if (activeProject) {
+                const currentViewKey = activeProject.currentTool;
+                const currentView = this.views[currentViewKey];
+                if (currentView && typeof currentView.handleClick === 'function') {
+                    currentView.handleClick(e);
+                }
             }
         });
 
         document.addEventListener('change', (e) => {
+            // Project Selector
+            if (e.target.id === 'project-selector') {
+                const projectId = e.target.value;
+                this.emit('event', { type: 'set-active-project', payload: { projectId } });
+            }
+
             // Keyword Extractor Tool settings
             if (e.target.matches('#extractor-input-type, #extractor-exclude-numbers')) {
-                this.handleExtractorSettingChange();
+                this.emit('event', { type: 'extractor-setting-changed' });
             }
 
             // Delegate to active view if it has a handler
-            const currentViewKey = this.stateManager.getState().currentTool;
-            const currentView = this.views[currentViewKey];
-            if (currentView && typeof currentView.handleChange === 'function') {
-                currentView.handleChange(e);
+            const activeProject = this.stateManager.getActiveProject();
+            if (activeProject) {
+                const currentViewKey = activeProject.currentTool;
+                const currentView = this.views[currentViewKey];
+                if (currentView && typeof currentView.handleChange === 'function') {
+                    currentView.handleChange(e);
+                }
             }
         });
-    }
-
-    handleRunExtractor() {
-        const toolState = this.stateManager.getToolState('keyword-extractor') || {};
-        const config = {
-            inputType: document.getElementById('extractor-input-type').value,
-            maxKeywordsPerUrl: parseInt(document.getElementById('extractor-max-keywords').value, 10),
-            minKeywordLength: parseInt(document.getElementById('extractor-min-length').value, 10),
-            excludeNumbers: document.getElementById('extractor-exclude-numbers').checked,
-            manualExcludedWords: toolState.manualExcludedWords || []
-        };
-
-        let inputData = { config };
-        if (config.inputType === 'sitemap') {
-            inputData.sitemapUrl = document.getElementById('extractor-sitemap').value.trim();
-        } else {
-            inputData.urls = document.getElementById('extractor-urls').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        }
-        this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor', inputData } });
-    }
-
-    handleExtractorSettingChange() {
-        const inputTypeSelect = document.getElementById('extractor-input-type');
-        const urlsGroup = document.getElementById('extractor-urls-group');
-        const sitemapGroup = document.getElementById('extractor-sitemap-group');
-
-        if (inputTypeSelect && urlsGroup && sitemapGroup) {
-             if (inputTypeSelect.value === 'sitemap') {
-                sitemapGroup.style.display = '';
-                urlsGroup.style.display = 'none';
-            } else {
-                sitemapGroup.style.display = 'none';
-                urlsGroup.style.display = '';
-            }
-        }
-
-        const excludeNumbers = document.getElementById('extractor-exclude-numbers')?.checked;
-        if (excludeNumbers !== undefined) {
-            this.emit('event', {
-                type: 'update-tool-setting',
-                payload: {
-                    toolId: 'keyword-extractor',
-                    settings: { excludeNumbers }
-                }
-            });
-        }
-    }
-
-    handleRunLinking() {
-        const lines = document.getElementById('linking-keywords').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
-        const articles = lines.map(line => {
-            const [keyword, url] = line.split(',');
-            return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
-        }).filter(Boolean);
-        this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
-    }
-
-    handleExportCsv() {
-        const keywords = this.stateManager.getState().masterKeywords;
-        if (keywords && keywords.length > 0) {
-            const csvString = CsvUtils.formatCSV(keywords);
-            CsvUtils.downloadCSV(csvString, `keywords-export-${new Date().toISOString().split('T')[0]}.csv`);
-        }
     }
 
     handleStateChange(state) {
         this.render(state);
     }
 
-    async render(state) {
+    render(state) {
         const toolContent = document.getElementById('tool-content');
         if (!toolContent) {
             console.error('Tool content element not found');
             return;
         }
 
+        const activeProject = this.stateManager.getActiveProject();
+        const projectList = this.stateManager.getProjectList();
+
+        this.renderProjectSelector(projectList, state.activeProjectId);
+
+        if (projectList.length === 0) {
+            toolContent.innerHTML = this.renderCreateFirstProject();
+            // No need for separate listener attachment here, main listener handles it.
+            return;
+        }
+        
+        if (!activeProject) {
+            toolContent.innerHTML = `<p class="p-8 text-center">Please select a project from the header to begin.</p>`;
+            return;
+        }
+
         try {
-            switch (state.currentTool) {
+            switch (activeProject.currentTool) {
                 case 'keyword-manager':
-                    toolContent.innerHTML = this.views.keywordManager.render(state);
+                    toolContent.innerHTML = this.views.keywordManager.render(activeProject);
                     break;
                 case 'keyword-extractor':
-                    this.renderKeywordExtractorView(toolContent, state);
+                    this.renderKeywordExtractorView(toolContent, activeProject);
                     break;
                 case 'internal-linking':
-                    this.renderInternalLinkingView(toolContent, state);
+                    this.renderInternalLinkingView(toolContent, state); // Note: might need activeProject too
                     break;
                 default:
                     toolContent.innerHTML = this.renderWelcome();
             }
         } catch (error) {
             console.error('Error rendering UI:', error);
-            toolContent.innerHTML = `
-                <div class="error-message">
-                    Error rendering UI: ${error.message}
-                </div>
-            `;
+            toolContent.innerHTML = `<div class="error-message">Error rendering UI: ${error.message}</div>`;
         }
     }
 
-    renderKeywordExtractorView(toolContent, state) {
-        const toolState = this.stateManager.getToolState('keyword-extractor') || {};
+    renderKeywordExtractorView(toolContent, projectState) {
+        const toolState = projectState.toolStates?.get('keyword-extractor') || {};
         const schema = this.toolManager.getTool('keyword-extractor').getConfigSchema().properties;
 
         toolContent.innerHTML = `
@@ -177,10 +148,10 @@ export class UIManager extends EventEmitter {
                         <option value="sitemap" ${toolState.inputType === 'sitemap' ? 'selected' : ''}>Sitemap.xml URL</option>
                     </select>
                 </div>
-                <div id="extractor-urls-group" class="mb-2">
+                <div id="extractor-urls-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'none' : 'block'};">
                     <textarea id="extractor-urls" class="w-full border p-2" rows="4" placeholder="Enter URLs, one per line..."></textarea>
                 </div>
-                <div id="extractor-sitemap-group" class="mb-2" style="display:none;">
+                <div id="extractor-sitemap-group" class="mb-2" style="display: ${toolState.inputType === 'sitemap' ? 'block' : 'none'};">
                     <input id="extractor-sitemap" class="w-full border p-2" placeholder="https://example.com/sitemap.xml"/>
                 </div>
                 <div class="mb-2 flex gap-4">
@@ -200,15 +171,14 @@ export class UIManager extends EventEmitter {
                 <div id="extractor-results" class="mt-4"></div>
             </div>
         `;
-        this.handleExtractorSettingChange(); // Set initial visibility based on state
     }
 
     renderInternalLinkingView(toolContent, state) {
         toolContent.innerHTML = `
             <div class="p-4">
                 <h2 class="font-bold text-lg mb-2">Internal Linking Tool</h2>
-                <p class="mb-2">Add your keywords and URLs to analyze internal linking opportunities.</p>
-                <textarea id="linking-keywords" class="w-full border p-2 mb-2" rows="4" placeholder="keyword, https://url.com\n..."></textarea>
+                <p class="mb-2">Paste the article content below to find linking opportunities based on your master keyword list.</p>
+                <textarea id="linking-content" class="w-full border p-2 mb-2" rows="10" placeholder="Paste article content here..."></textarea>
                 <button id="run-linking-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Analyze</button>
                 <div id="linking-results" class="mt-4"></div>
             </div>
@@ -217,22 +187,35 @@ export class UIManager extends EventEmitter {
 
     renderWelcome() {
         return `
-            <div class="welcome-screen">
-                <h1>Welcome to Internal Linking Tool</h1>
-                <p>Select a tool from above to get started:</p>
-                <ul>
-                    <li><strong>Keyword Manager:</strong> Manage your target keywords and their search intent</li>
-                    <li><strong>Keyword Extractor:</strong> Extract keywords from URLs or sitemap</li>
-                    <li><strong>Internal Linking:</strong> Analyze and optimize internal linking</li>
-                </ul>
+            <div class="p-8 text-center">
+                <h1 class="text-2xl font-bold">Welcome to the SEO Tools Platform</h1>
+                <p>Select a tool from the navigation bar above to get started.</p>
+            </div>
+        `;
+    }
+    
+    renderProjectSelector(projects, activeProjectId) {
+        const selector = document.getElementById('project-selector');
+        if (!selector) return;
+
+        selector.innerHTML = projects.map(p =>
+            `<option value="${p.id}" ${p.id === activeProjectId ? 'selected' : ''}>${p.name}</option>`
+        ).join('');
+    }
+
+    renderCreateFirstProject() {
+        return `
+            <div class="text-center p-8">
+                <h2 class="text-2xl font-bold mb-4">Welcome!</h2>
+                <p class="mb-4">Create your first project to get started.</p>
+                <input type="text" id="first-project-name" class="border p-2 rounded w-full max-w-sm mb-4 dark:bg-gray-700" placeholder="My Awesome Website">
+                <button id="create-first-project-btn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">Create Project</button>
             </div>
         `;
     }
 
     showError(message) {
-        const errorDiv = document.createElement('div');
-        errorDiv.className = 'error-message';
-        errorDiv.textContent = message;
-        document.getElementById('tool-content').appendChild(errorDiv);
+        // A more robust error display could be implemented here, e.g., a toast notification.
+        alert(`Error: ${message}`);
     }
 }

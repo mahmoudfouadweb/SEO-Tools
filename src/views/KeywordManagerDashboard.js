@@ -14,10 +14,19 @@ export class KeywordManagerDashboard {
 
     handleClick(e) {
         // Add Keyword Modal
-        if (e.target.id === 'add-keyword-btn') {
-            document.getElementById('add-keyword-modal').classList.remove('hidden');
+        if (e.target.dataset.action === 'add-keyword' || e.target.id === 'add-keyword-btn') {
+            const modal = document.getElementById('add-keyword-modal');
+            modal.style.display = 'flex';
+            // Add click outside to close
+            const closeModal = (event) => {
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                    modal.removeEventListener('click', closeModal);
+                }
+            };
+            modal.addEventListener('click', closeModal);
         } else if (e.target.id === 'cancel-add-keyword') {
-            document.getElementById('add-keyword-modal').classList.add('hidden');
+            document.getElementById('add-keyword-modal').style.display = 'none';
         } else if (e.target.id === 'confirm-add-keyword') {
             const term = document.getElementById('new-keyword-term').value;
             const intent = document.getElementById('new-keyword-intent').value;
@@ -27,7 +36,7 @@ export class KeywordManagerDashboard {
                     payload: { keywords: [{ keyword: term, intent: intent || undefined }] } 
                 });
                 document.getElementById('new-keyword-term').value = '';
-                document.getElementById('add-keyword-modal').classList.add('hidden');
+                document.getElementById('add-keyword-modal').style.display = 'none';
             }
         }
         // Import/Export Buttons
@@ -63,9 +72,9 @@ export class KeywordManagerDashboard {
             document.getElementById('edit-keyword-id').value = keywordId;
             document.getElementById('edit-keyword-term').value = keywordTerm;
             document.getElementById('edit-keyword-intent').value = keywordIntent || '';
-            document.getElementById('edit-keyword-modal').classList.remove('hidden');
+            document.getElementById('edit-keyword-modal').style.display = 'flex';
         } else if (e.target.id === 'cancel-edit-keyword') {
-            document.getElementById('edit-keyword-modal').classList.add('hidden');
+            document.getElementById('edit-keyword-modal').style.display = 'none';
         } else if (e.target.id === 'confirm-edit-keyword') {
             const id = document.getElementById('edit-keyword-id').value;
             const term = document.getElementById('edit-keyword-term').value;
@@ -78,19 +87,19 @@ export class KeywordManagerDashboard {
                     intent: intent || undefined 
                 } 
             });
-            document.getElementById('edit-keyword-modal').classList.add('hidden');
+            document.getElementById('edit-keyword-modal').style.display = 'none';
         }
         // Delete Keyword Modal
         else if (e.target.classList.contains('delete-keyword-btn')) {
             const keywordId = e.target.dataset.keywordId;
             document.getElementById('delete-keyword-id').value = keywordId;
-            document.getElementById('delete-keyword-modal').classList.remove('hidden');
+            document.getElementById('delete-keyword-modal').style.display = 'flex';
         } else if (e.target.id === 'cancel-delete-keyword') {
-            document.getElementById('delete-keyword-modal').classList.add('hidden');
+            document.getElementById('delete-keyword-modal').style.display = 'none';
         } else if (e.target.id === 'confirm-delete-keyword') {
             const id = document.getElementById('delete-keyword-id').value;
             this.uiManager.emit('event', { type: 'delete-keyword', payload: id });
-            document.getElementById('delete-keyword-modal').classList.add('hidden');
+            document.getElementById('delete-keyword-modal').style.display = 'none';
         }
     }
 
@@ -132,7 +141,7 @@ export class KeywordManagerDashboard {
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-xl font-bold">Keyword Manager</h2>
                     <div>
-                        <button id="add-keyword-btn" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2">
+                    <button id="add-keyword-btn" data-action="add-keyword" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2">
                             Add Keyword
                         </button>
                         <button id="import-csv-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded mr-2">
@@ -199,8 +208,8 @@ export class KeywordManagerDashboard {
                 </div>
 
                 <!-- Add Keyword Modal -->
-                <div id="add-keyword-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div class="bg-white p-6 rounded-lg">
+                <div id="add-keyword-modal" class="modal hidden">
+                    <div class="modal-content">
                         <h3 class="text-lg font-bold mb-4">Add New Keyword</h3>
                         <input type="text" id="new-keyword-term" placeholder="Enter keyword" class="w-full p-2 border rounded mb-2">
                         <select id="new-keyword-intent" class="w-full p-2 border rounded mb-4">
@@ -217,8 +226,8 @@ export class KeywordManagerDashboard {
                 </div>
 
                 <!-- Edit Keyword Modal -->
-                <div id="edit-keyword-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div class="bg-white p-6 rounded-lg">
+                <div id="edit-keyword-modal" class="modal hidden">
+                    <div class="modal-content">
                         <h3 class="text-lg font-bold mb-4">Edit Keyword</h3>
                         <input type="hidden" id="edit-keyword-id">
                         <input type="text" id="edit-keyword-term" placeholder="Enter keyword" class="w-full p-2 border rounded mb-2">
@@ -236,8 +245,8 @@ export class KeywordManagerDashboard {
                 </div>
 
                 <!-- Delete Keyword Modal -->
-                <div id="delete-keyword-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div class="bg-white p-6 rounded-lg">
+                <div id="delete-keyword-modal" class="modal hidden">
+                    <div class="modal-content">
                         <h3 class="text-lg font-bold mb-4">Delete Keyword</h3>
                         <p>Are you sure you want to delete this keyword?</p>
                         <input type="hidden" id="delete-keyword-id">
