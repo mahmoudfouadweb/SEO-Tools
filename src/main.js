@@ -1,4 +1,4 @@
-import { App } from './App.js';
+import { App } from '/src/App.js';
 
 // Initialize the application when the DOM is loaded
 document.addEventListener('DOMContentLoaded', async () => {

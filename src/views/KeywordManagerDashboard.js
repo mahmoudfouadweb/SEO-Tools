@@ -1,6 +1,15 @@
+import { CsvUtils } from '/src/utils/csvUtils.js';
+
 export class KeywordManagerDashboard {
     constructor(uiManager) {
         this.uiManager = uiManager;
+        // Per the agent's report, this listener handles the file input change.
+        // It's placed here for close proximity to the input element it controls.
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'csv-import-input') {
+                this.handleFileImport(e);
+            }
+        });
     }
 
     handleClick(e) {
@@ -21,6 +30,16 @@ export class KeywordManagerDashboard {
                 document.getElementById('add-keyword-modal').classList.add('hidden');
             }
         }
+        // Import/Export Buttons
+        else if (e.target.id === 'import-csv-btn') {
+            document.getElementById('csv-import-input').click();
+        } else if (e.target.id === 'export-csv-btn') {
+            const keywords = this.uiManager.stateManager.getState().masterKeywords;
+            if (keywords.length > 0) {
+                const csvString = CsvUtils.formatCSV(keywords);
+                CsvUtils.downloadCSV(csvString, `keywords-export-${new Date().toISOString().split('T')[0]}.csv`);
+            }
+        }
         // Add to Exclude Filter Button and Select All Keywords
         else if (e.target.id === 'add-to-exclude-filter-btn') {
             const selectedCheckboxes = Array.from(document.querySelectorAll('.select-keyword-checkbox:checked'));
@@ -34,23 +53,6 @@ export class KeywordManagerDashboard {
         } else if (e.target.id === 'select-all-keywords') {
             const checkboxes = document.querySelectorAll('.select-keyword-checkbox');
             checkboxes.forEach(cb => cb.checked = e.target.checked);
-        }
-        // Bulk Import Modal
-        else if (e.target.id === 'bulk-import-btn') {
-            document.getElementById('bulk-import-modal').classList.remove('hidden');
-        } else if (e.target.id === 'cancel-bulk-import') {
-            document.getElementById('bulk-import-modal').classList.add('hidden');
-        } else if (e.target.id === 'confirm-bulk-import') {
-            const data = document.getElementById('bulk-import-data').value;
-            if (data) {
-                const keywords = data.split('\n').map(line => {
-                    const [keyword, intent] = line.split(',').map(s => s.trim());
-                    return { keyword, intent: intent || undefined };
-                }).filter(k => k.keyword);
-                this.uiManager.emit('event', { type: 'bulk-import', payload: { keywords } });
-                document.getElementById('bulk-import-data').value = '';
-                document.getElementById('bulk-import-modal').classList.add('hidden');
-            }
         }
         // Edit Keyword Modal
         else if (e.target.classList.contains('edit-keyword-btn')) {
@@ -106,6 +108,23 @@ export class KeywordManagerDashboard {
         }
     }
 
+    handleFileImport(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const keywords = CsvUtils.parseCSV(event.target.result);
+                this.uiManager.emit('event', { type: 'add-keywords', payload: { keywords } });
+            } catch (error) {
+                this.uiManager.emit('error', `CSV parsing failed: ${error.message}`);
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = ''; // Reset file input
+    }
+
     render(state) {
         const keywords = state?.masterKeywords || [];
         return `
@@ -116,14 +135,19 @@ export class KeywordManagerDashboard {
                         <button id="add-keyword-btn" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded mr-2">
                             Add Keyword
                         </button>
-                        <button id="bulk-import-btn" class="bg-green-500 hover:bg-green-700 text-white px-4 py-2 rounded mr-2">
-                            Bulk Import
+                        <button id="import-csv-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded mr-2">
+                            Import from CSV
+                        </button>
+                        <button id="export-csv-btn" class="${keywords.length > 0 ? 'bg-teal-600 hover:bg-teal-700' : 'bg-gray-400 cursor-not-allowed'} text-white px-4 py-2 rounded mr-2" ${keywords.length === 0 ? 'disabled' : ''}>
+                            Export to CSV
                         </button>
                         <button id="add-to-exclude-filter-btn" class="bg-purple-600 hover:bg-purple-800 text-white px-4 py-2 rounded">
                             Add to Exclude Filter
                         </button>
                     </div>
                 </div>
+
+                <input type="file" id="csv-import-input" class="hidden" accept=".csv" />
 
                 <div class="overflow-x-auto">
                     <table class="min-w-full bg-white border">
@@ -188,21 +212,6 @@ export class KeywordManagerDashboard {
                         <div class="flex justify-end">
                             <button id="cancel-add-keyword" class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded mr-2">Cancel</button>
                             <button id="confirm-add-keyword" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">Add</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Bulk Import Modal -->
-                <div id="bulk-import-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                    <div class="bg-white p-6 rounded-lg">
-                        <h3 class="text-lg font-bold mb-4">Bulk Import Keywords</h3>
-                        <textarea id="bulk-import-data" 
-                            placeholder="Enter keywords (one per line)&#10;Format: keyword,intent&#10;Example:&#10;seo tips,informational&#10;buy shoes,transactional&#10;marketing tips" 
-                            class="w-full p-2 border rounded mb-4"
-                            rows="6"></textarea>
-                        <div class="flex justify-end">
-                            <button id="cancel-bulk-import" class="bg-gray-500 hover:bg-gray-700 text-white px-4 py-2 rounded mr-2">Cancel</button>
-                            <button id="confirm-bulk-import" class="bg-blue-500 hover:bg-blue-700 text-white px-4 py-2 rounded">Import</button>
                         </div>
                     </div>
                 </div>

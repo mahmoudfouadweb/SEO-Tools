@@ -1,5 +1,6 @@
-import { EventEmitter } from '../utils/EventEmitter.js';
-import { KeywordManagerDashboard } from '../views/KeywordManagerDashboard.js';
+import { EventEmitter } from '/src/utils/EventEmitter.js';
+import { CsvUtils } from '/src/utils/csvUtils.js';
+import { KeywordManagerDashboard } from '/src/views/KeywordManagerDashboard.js';
 
 export class UIManager extends EventEmitter {
     constructor(stateManager, toolManager) {
@@ -31,6 +32,12 @@ export class UIManager extends EventEmitter {
             // Internal Linking Tool actions
             if (e.target.id === 'run-linking-btn') {
                 this.handleRunLinking();
+                return;
+            }
+
+            // Export CSV button
+            if (e.target.id === 'export-csv-btn') {
+                this.handleExportCsv();
                 return;
             }
 
@@ -110,6 +117,14 @@ export class UIManager extends EventEmitter {
             return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
         }).filter(Boolean);
         this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
+    }
+
+    handleExportCsv() {
+        const keywords = this.stateManager.getState().masterKeywords;
+        if (keywords && keywords.length > 0) {
+            const csvString = CsvUtils.formatCSV(keywords);
+            CsvUtils.downloadCSV(csvString, `keywords-export-${new Date().toISOString().split('T')[0]}.csv`);
+        }
     }
 
     handleStateChange(state) {

@@ -1,4 +1,4 @@
-import { EventEmitter } from '../utils/EventEmitter.js';
+import { EventEmitter } from '/src/utils/EventEmitter.js';
 
 export class StateManager extends EventEmitter {
     constructor() {

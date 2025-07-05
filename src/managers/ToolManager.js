@@ -1,5 +1,5 @@
-import { KeywordExtractorTool } from '../tools/KeywordExtractorTool.js';
-import { InternalLinkingTool } from '../tools/InternalLinkingTool.js';
+import { KeywordExtractorTool } from '/src/tools/KeywordExtractorTool.js';
+import { InternalLinkingTool } from '/src/tools/InternalLinkingTool.js';
 
 export class ToolManager {
     constructor(stateManager) {

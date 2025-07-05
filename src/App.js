@@ -1,6 +1,6 @@
-import { StateManager } from './managers/StateManager.js';
-import { UIManager } from './managers/UIManager.js';
-import { ToolManager } from './managers/ToolManager.js';
+import { StateManager } from '/src/managers/StateManager.js';
+import { UIManager } from '/src/managers/UIManager.js';
+import { ToolManager } from '/src/managers/ToolManager.js';
 
 export class App {
     constructor() {
@@ -13,7 +13,15 @@ export class App {
 
     async init() {
         try {
-            // Initialize UI with current state
+            // On first load, ensure a project exists.
+            if (this.stateManager.getProjectList().length === 0) {
+                // UIManager will render the "Create First Project" modal
+            } else if (!this.stateManager.getActiveProjectId()) {
+                // If projects exist but none are active, activate the first one.
+                const firstProjectId = this.stateManager.getProjectList()[0].id;
+                this.stateManager.setActiveProject(firstProjectId);
+            }
+
             await this.uiManager.render(this.stateManager.getState());
             return true;
         } catch (error) {
@@ -76,7 +84,7 @@ export class App {
                     break;
 
                 case 'select-tool':
-                    this.stateManager.setCurrentTool(event.payload);
+                    this.stateManager.setCurrentToolForActiveProject(event.payload);
                     break;
 
                 case 'add-to-exclude-filter': {
@@ -90,6 +98,20 @@ export class App {
                     this.stateManager.setToolState('keyword-extractor', { manualExcludedWords: newExcluded });
                     break;
                 }
+
+                // Project Management Events
+                case 'create-project':
+                    this.stateManager.createProject(event.payload.projectName);
+                    break;
+
+                case 'set-active-project':
+                    this.stateManager.setActiveProject(event.payload.projectId);
+                    break;
+
+                case 'delete-project':
+                    this.stateManager.deleteProject(event.payload.projectId);
+                    break;
+
                 default:
                     console.warn('Unknown event type:', event.type);
             }
