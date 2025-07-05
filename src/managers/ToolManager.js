@@ -1,36 +1,48 @@
-import { InternalLinkingTool } from '../tools/InternalLinkingTool.js';
 import { KeywordExtractorTool } from '../tools/KeywordExtractorTool.js';
+import { InternalLinkingTool } from '../tools/InternalLinkingTool.js';
 
 export class ToolManager {
     constructor(stateManager) {
         this.stateManager = stateManager;
         this.tools = new Map();
-
-        // Register tools
-        this.registerTool(new InternalLinkingTool(stateManager));
-        this.registerTool(new KeywordExtractorTool(stateManager));
+        this.initializeTools();
     }
 
-    registerTool(toolInstance) {
-        this.tools.set(toolInstance.getID(), toolInstance);
+    initializeTools() {
+        const tools = [
+            new KeywordExtractorTool(this.stateManager),
+            new InternalLinkingTool(this.stateManager)
+        ];
+
+        tools.forEach(tool => {
+            this.tools.set(tool.getID(), tool);
+        });
     }
 
     async runTool(toolId, inputData) {
-        const tool = this.tools.get(toolId);
-        if (!tool) {
-            return { success: false, error: `Tool with ID ${toolId} not found` };
-        }
-
+        console.log(`Running tool ${toolId} with input:`, inputData);
+        
         try {
+            const tool = this.tools.get(toolId);
+            if (!tool) {
+                throw new Error(`Tool ${toolId} not found`);
+            }
+
+            // Validate input
+            tool.validateInput(inputData);
+
+            // Run the tool
             const result = await tool.run(inputData);
+
             return {
                 success: true,
                 data: result
             };
         } catch (error) {
+            console.error(`Error running tool ${toolId}:`, error);
             return {
                 success: false,
-                error: error.message || 'Tool execution failed'
+                error: error.message
             };
         }
     }
@@ -39,11 +51,7 @@ export class ToolManager {
         return this.tools.get(toolId);
     }
 
-    getRegisteredTools() {
-        return Array.from(this.tools.values()).map(tool => ({
-            id: tool.getID(),
-            name: tool.getName(),
-            description: tool.getDescription?.() || ''
-        }));
+    getTools() {
+        return Array.from(this.tools.values());
     }
 }

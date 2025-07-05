@@ -3,107 +3,91 @@ import { EventEmitter } from '../utils/EventEmitter.js';
 export class StateManager extends EventEmitter {
     constructor() {
         super();
-        this.state = {
-            currentProjectName: '',
-            projectsList: [],
-            allProjectsData: {},
-            masterKeywords: [],
-            activeToolState: {},
-            activeProjectId: null,
-            theme: 'light'
-        };
-        this.storageKey = 'seo-tools-platform-state';
-    }
-
-    async loadState() {
-        const saved = localStorage.getItem(this.storageKey);
+        // تحميل الحالة من localStorage إذا وجدت
+        const saved = localStorage.getItem('seo-tool-state');
         if (saved) {
-            this.state = JSON.parse(saved);
+            try {
+                const parsed = JSON.parse(saved);
+                // toolStates تحتاج تحويل من object إلى Map
+                if (parsed.toolStates && !(parsed.toolStates instanceof Map)) {
+                    parsed.toolStates = new Map(Object.entries(parsed.toolStates));
+                }
+                this.state = parsed;
+            } catch (e) {
+                this.state = {
+                    masterKeywords: [],
+                    currentTool: null,
+                    toolStates: new Map()
+                };
+            }
         } else {
-            const defaultProject = { id: 'default', name: 'Default Project', pages: [] };
-            this.state.projectsList = [defaultProject];
-            this.state.activeProjectId = defaultProject.id;
-            this.state.currentProjectName = defaultProject.name;
-            this.saveState();
+            this.state = {
+                masterKeywords: [],
+                currentTool: null,
+                toolStates: new Map()
+            };
         }
-        this.emit('stateChange', this.state);
-    }
-
-    saveState() {
-        localStorage.setItem(this.storageKey, JSON.stringify(this.state));
     }
 
     getState() {
         return this.state;
     }
 
-    setActiveProject(projectId) {
-        this.state.activeProjectId = projectId;
-        const project = this.state.projectsList.find(p => p.id === projectId);
-        this.state.currentProjectName = project ? project.name : '';
-        this.saveState();
-        this.emit('stateChange', this.state);
+    setState(newState) {
+        this.state = { ...this.state, ...newState };
+        // حفظ في localStorage
+        const toSave = { ...this.state, toolStates: Object.fromEntries(this.state.toolStates) };
+        localStorage.setItem('seo-tool-state', JSON.stringify(toSave));
+        this.emit('state-change', this.state);
     }
 
-    toggleTheme() {
-        this.state.theme = this.state.theme === 'light' ? 'dark' : 'light';
-        this.saveState();
-        this.emit('stateChange', this.state);
-    }
+    addKeywords(keywords) {
+        const newKeywords = keywords.map(k => ({
+            id: crypto.randomUUID(),
+            ...k,
+            createdAt: new Date().toISOString()
+        }));
 
-    updateKeywordIntent(keywordId, intent) {
-        const keyword = this.state.masterKeywords.find(k => k.id === keywordId);
-        if (keyword) {
-            keyword.intent = intent;
-            this.saveState();
-            this.emit('stateChange', this.state);
-        }
-    }
-
-    updateToolOutput(toolId, output) {
-        this.state.activeToolState[toolId] = output;
-        this.saveState();
-        this.emit('stateChange', this.state);
-    }
-
-    addKeyword(keyword) {
-        // Assign a unique ID if not provided
-        if (!keyword.id) {
-            keyword.id = `kw-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        }
-        this.state.masterKeywords.push(keyword);
-        this.saveState();
-        this.emit('stateChange', this.state);
-    }
-
-    deleteKeyword(keywordId) {
-        this.state.masterKeywords = this.state.masterKeywords.filter(k => k.id !== keywordId);
-        this.saveState();
-        this.emit('stateChange', this.state);
-    }
-
-    editKeyword(updatedKeyword) {
-        const index = this.state.masterKeywords.findIndex(k => k.id === updatedKeyword.id);
-        if (index !== -1) {
-            this.state.masterKeywords[index] = { ...this.state.masterKeywords[index], ...updatedKeyword };
-            this.saveState();
-            this.emit('stateChange', this.state);
-        }
-    }
-
-    bulkImportKeywords(keywords) {
-        // Filter out duplicates based on a unique identifier (e.g., keyword text)
-        const existingKeywords = new Set(this.state.masterKeywords.map(k => k.keyword.toLowerCase()));
-        const newKeywords = keywords.filter(k => !existingKeywords.has(k.keyword.toLowerCase()));
-
-        newKeywords.forEach(keyword => {
-            if (!keyword.id) {
-                keyword.id = `kw-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            }
+        this.setState({
+            masterKeywords: [...this.state.masterKeywords, ...newKeywords]
         });
 
-        this.state.masterKeywords = [...this.state.masterKeywords, ...newKeywords];
-        this.saveState();
-        this.emit('stateChange', this.state);
+        return newKeywords;
+    }
+
+    updateKeyword(id, updates) {
+        const index = this.state.masterKeywords.findIndex(k => k.id === id);
+        if (index === -1) {
+            throw new Error(`Keyword with id ${id} not found`);
+        }
+
+        const updatedKeywords = [...this.state.masterKeywords];
+        updatedKeywords[index] = {
+            ...updatedKeywords[index],
+            ...updates,
+            updatedAt: new Date().toISOString()
+        };
+
+        this.setState({ masterKeywords: updatedKeywords });
+        return updatedKeywords[index];
+    }
+
+    deleteKeyword(id) {
+        const updatedKeywords = this.state.masterKeywords.filter(k => k.id !== id);
+        this.setState({ masterKeywords: updatedKeywords });
+    }
+
+    setToolState(toolId, state) {
+        const toolStates = new Map(this.state.toolStates);
+        toolStates.set(toolId, state);
+        this.setState({ toolStates });
+    }
+
+    getToolState(toolId) {
+        return this.state.toolStates.get(toolId);
+    }
+
+    setCurrentTool(toolId) {
+        this.setState({ currentTool: toolId });
     }
 }

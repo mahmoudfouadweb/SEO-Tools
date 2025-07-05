@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Keyword Manager Tests</title>
+    <link href="test.css" rel="stylesheet">
+    <script type="module">
+        import './src/main.js';
+        import { App } from './src/App.js';
+        
+        let app;
+        window.runTests = async function() {
+            const outputDiv = document.getElementById('output');
+            const log = (msg) => {
+                console.log(msg);
+                if (typeof msg === 'object') {
+                    msg = JSON.stringify(msg, null, 2);
+                }
+                outputDiv.innerHTML += msg + '<br>';
+            };
+
+            try {
+                log('Starting Keyword Manager Tests...');
+                app = new App();
+                await app.init();
+
+                // Test 1: Basic keyword addition
+                log('\nTest 1: Basic keyword addition');
+                app.handleUIEvent({
+                    type: 'add-keywords',
+                    payload: {
+                        keywords: [
+                            { keyword: 'test keyword', intent: 'informational' },
+                            { keyword: 'السيو العربي', intent: 'navigational' }
+                        ]
+                    }
+                });
+                log('Added basic keywords');
+
+                // Wait for state update
+                await new Promise(resolve => setTimeout(resolve, 500));
+                log('Current state:', app.stateManager.getState().masterKeywords);
+
+                // Test 2: Bulk import with mixed content
+                log('\nTest 2: Bulk import with mixed content');
+                app.handleUIEvent({
+                    type: 'bulk-import',
+                    payload: {
+                        keywords: [
+                            { keyword: 'keyword 1' },
+                            { keyword: 'تحسين محركات البحث' },
+                            { keyword: 'test with numbers 123' },
+                            { keyword: 'keyword with special chars @#$' }
+                        ]
+                    }
+                });
+                log('Imported bulk keywords');
+
+                // Wait for state update
+                await new Promise(resolve => setTimeout(resolve, 500));
+                log('Current state:', app.stateManager.getState().masterKeywords);
+
+                // Test 3: Common words exclusion
+                log('\nTest 3: Common words exclusion');
+                app.handleUIEvent({
+                    type: 'add-keywords',
+                    payload: {
+                        keywords: [
+                            { keyword: 'the test keyword' },
+                            { keyword: 'a sample keyword' },
+                            { keyword: 'keyword with and without' }
+                        ]
+                    }
+                });
+                log('Added keywords with common words');
+
+                // Wait for state update
+                await new Promise(resolve => setTimeout(resolve, 500));
+                log('Current state:', app.stateManager.getState().masterKeywords);
+
+                // Test 4: Arabic text handling
+                log('\nTest 4: Arabic text handling');
+                app.handleUIEvent({
+                    type: 'add-keywords',
+                    payload: {
+                        keywords: [
+                            { keyword: 'كلمة مفتاحية للاختبار' },
+                            { keyword: 'تحسين محركات البحث العربية' },
+                            { keyword: 'السيو العربي مع أرقام 123' }
+                        ]
+                    }
+                });
+                log('Added Arabic keywords');
+
+                // Print final state
+                const state = app.stateManager.getState();
+                log('\nFinal state:');
+                log('Total keywords: ' + (state.masterKeywords?.length || 0));
+                log('Keywords: ' + JSON.stringify(state.masterKeywords, null, 2));
+
+            } catch (error) {
+                log('\nERROR: ' + error.message);
+                console.error('Test error:', error);
+            }
+        }
+
+        // Add error handler for module loading
+        window.addEventListener('error', function(e) {
+            console.error('Script error:', e);
+            document.getElementById('output').innerHTML += '<br>ERROR loading script: ' + e.filename + ' - ' + e.message;
+        });
+    </script>
+</head>
+<body>
+    <div id="app">
+        <!-- Tool Buttons -->
+        <div class="tool-buttons">
+            <button class="tool-btn" data-tool="keyword-manager">Keyword Manager</button>
+            <button class="tool-btn" data-tool="keyword-extractor">Keyword Extractor</button>
+            <button class="tool-btn" data-tool="internal-linking">Internal Linking</button>
+        </div>
+
+        <!-- Tool Content -->
+        <div id="tool-content"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test Output</h2>
+        <div id="output" class="output"></div>
+        <button onclick="runTests()" class="run-tests-btn">
+            Run Tests
+        </button>
+    </div>
+</body>
+</html>

@@ -1,30 +1,34 @@
 export class EventEmitter {
     constructor() {
-        this.listeners = {};
+        this.listeners = new Map();
     }
 
-    on(event, callback) {
-        if (!this.listeners[event]) {
-            this.listeners[event] = [];
+    on(event, listener) {
+        if (!this.listeners.has(event)) {
+            this.listeners.set(event, []);
         }
-        this.listeners[event].push(callback);
+        this.listeners.get(event).push(listener);
     }
 
     emit(event, data) {
-        if (!this.listeners[event]) return;
-        this.listeners[event].forEach(cb => cb(data));
+        if (this.listeners.has(event)) {
+            this.listeners.get(event).forEach(listener => {
+                try {
+                    listener(data);
+                } catch (error) {
+                    console.error('Error in event listener:', error);
+                }
+            });
+        }
     }
 
-    off(event, callback) {
-        if (!this.listeners[event]) return;
-        this.listeners[event] = this.listeners[event].filter(cb => cb !== callback);
-    }
-
-    once(event, callback) {
-        const onceCallback = (...args) => {
-            this.off(event, onceCallback);
-            callback(...args);
-        };
-        this.on(event, onceCallback);
+    off(event, listener) {
+        if (this.listeners.has(event)) {
+            const listeners = this.listeners.get(event);
+            const index = listeners.indexOf(listener);
+            if (index !== -1) {
+                listeners.splice(index, 1);
+            }
+        }
     }
 }

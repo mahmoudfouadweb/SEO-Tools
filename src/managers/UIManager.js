@@ -1,148 +1,175 @@
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { KeywordManagerDashboard } from '../views/KeywordManagerDashboard.js';
-import { InternalLinkingTool } from '../tools/InternalLinkingTool.js';
-import { KeywordExtractorTool } from '../tools/KeywordExtractorTool.js';
 
 export class UIManager extends EventEmitter {
-    constructor() {
+    constructor(stateManager) {
         super();
-        this.projectSelector = document.getElementById('project-selector');
-        this.openProjectBtn = document.getElementById('open-project-btn');
-        this.themeToggleBtn = document.getElementById('theme-toggle-btn');
-        this.toolContent = document.getElementById('tool-content');
-        this.toolButtons = document.querySelectorAll('.tool-btn');
-
-        this.keywordManagerDashboard = new KeywordManagerDashboard(this);
-
+        console.log('UIManager.js: UIManager constructor has been called.');
+        this.stateManager = stateManager;
+        this.views = {
+            keywordManager: new KeywordManagerDashboard(this)
+        };
+        
+        // Listen for state changes
+        this.stateManager.on('state-change', this.handleStateChange.bind(this));
+        
+        // Attach event listeners
         this.attachEventListeners();
     }
 
     attachEventListeners() {
-        this.openProjectBtn.addEventListener('click', () => {
-            const projectId = this.projectSelector.value;
-            this.emit('event', { type: 'open-project', payload: { projectId } });
-        });
-
-        this.themeToggleBtn.addEventListener('click', () => {
-            this.emit('event', { type: 'toggle-theme' });
-        });
-
-        this.toolButtons.forEach(button => {
-            button.addEventListener('click', () => {
-                const toolId = button.getAttribute('data-tool');
-                this.renderTool(toolId);
-            });
-        });
-
-        document.addEventListener('change', (e) => {
-            if (e.target.classList.contains('search-intent-select')) {
-                const keywordId = e.target.getAttribute('data-keyword-id');
-                const intent = e.target.value;
-                this.emit('event', { type: 'update-keyword-intent', payload: { keywordId, intent } });
+        console.log('UIManager attachEventListeners called');
+        document.addEventListener('click', (e) => {
+            if (e.target.matches('.tool-btn')) {
+                const toolId = e.target.dataset.tool;
+                this.emit('event', { type: 'select-tool', payload: toolId });
             }
         });
-
-        window.addEventListener('editKeyword', (e) => {
-            this.emit('event', { type: 'edit-keyword', payload: e.detail });
-        });
-
-        window.addEventListener('deleteKeyword', (e) => {
-            this.emit('event', { type: 'delete-keyword', payload: e.detail });
-        });
-
-        window.addEventListener('addKeywords', (e) => {
-            this.emit('event', { type: 'add-keywords', payload: e.detail });
-        });
-
-        window.addEventListener('bulkImport', (e) => {
-            this.emit('event', { type: 'bulk-import', payload: e.detail });
-        });
     }
 
-    render(state) {
-        this.renderProjectSelector(state.projectsList, state.activeProjectId);
-        this.applyTheme(state.theme);
-        if (this.currentToolId) {
-            this.renderTool(this.currentToolId, state);
+    handleStateChange(state) {
+        this.render(state);
+    }
+
+    async render(state) {
+        console.log('UIManager render called with state:', state);
+        const toolContent = document.getElementById('tool-content');
+        if (!toolContent) {
+            console.error('Tool content element not found');
+            return;
+        }
+
+        try {
+            switch (state.currentTool) {
+                case 'keyword-manager':
+                    toolContent.innerHTML = this.views.keywordManager.render(state);
+                    break;
+                case 'keyword-extractor':
+                    this.renderKeywordExtractorView(toolContent, state);
+                    break;
+                case 'internal-linking':
+                    this.renderInternalLinkingView(toolContent, state);
+                    break;
+                default:
+                    toolContent.innerHTML = this.renderWelcome();
+            }
+        } catch (error) {
+            console.error('Error rendering UI:', error);
+            toolContent.innerHTML = `
+                <div class="error-message">
+                    Error rendering UI: ${error.message}
+                </div>
+            `;
         }
     }
 
-    renderProjectSelector(projects, activeProjectId) {
-        this.projectSelector.innerHTML = '';
-        projects.forEach(project => {
-            const option = document.createElement('option');
-            option.value = project.id;
-            option.textContent = project.name;
-            if (project.id === activeProjectId) option.selected = true;
-            this.projectSelector.appendChild(option);
-        });
-    }
-
-    applyTheme(theme) {
-        if (theme === 'dark') {
-            document.documentElement.classList.add('dark');
-        } else {
-            document.documentElement.classList.remove('dark');
-        }
-    }
-
-    renderTool(toolId, state) {
-        this.currentToolId = toolId;
-        switch (toolId) {
-            case 'internal-linking':
-                this.renderInternalLinkingTool(state);
-                break;
-            case 'keyword-extractor':
-                this.renderKeywordExtractorTool(state);
-                break;
-            case 'keyword-manager':
-                this.renderKeywordManager(state);
-                break;
-            default:
-                this.toolContent.innerHTML = '<p>Tool not found.</p>';
-        }
-    }
-
-    renderInternalLinkingTool(state) {
-        const tool = new InternalLinkingTool();
-        this.toolContent.innerHTML = tool.getInputTemplate();
-        this.addRunButton(tool);
-    }
-
-    renderKeywordExtractorTool(state) {
-        const tool = new KeywordExtractorTool();
-        this.toolContent.innerHTML = tool.getInputTemplate();
-        this.addRunButton(tool);
-    }
-
-    renderKeywordManager(state) {
-        this.toolContent.innerHTML = this.keywordManagerDashboard.render(state);
-    }
-
-    addRunButton(tool) {
-        const runBtn = document.createElement('button');
-        runBtn.textContent = 'Run Tool';
-        runBtn.className = 'mt-4 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded';
-        this.toolContent.appendChild(runBtn);
-
-        runBtn.addEventListener('click', () => {
-            const inputData = this.collectInputData();
-            this.emit('event', { type: 'run-tool', payload: { toolId: tool.getID(), inputData } });
-        });
-    }
-
-    collectInputData() {
-        const inputs = this.toolContent.querySelectorAll('input, select, textarea');
-        const data = {};
-        inputs.forEach(input => {
-            if (input.type === 'checkbox') {
-                data[input.name] = input.checked;
-            } else if (input.tagName.toLowerCase() === 'textarea') {
-                data[input.name] = input.value.split('\n').map(s => s.trim()).filter(Boolean);
+    renderKeywordExtractorView(toolContent, state) {
+        // واجهة متقدمة لاستخراج الكلمات المفتاحية
+        toolContent.innerHTML = `
+            <div class="p-4">
+                <h2 class="font-bold text-lg mb-2">Keyword Extractor</h2>
+                <p class="mb-2">Extract keywords from URLs or a sitemap.</p>
+                <div class="mb-2">
+                    <label class="font-semibold">Input Type:</label>
+                    <select id="extractor-input-type" class="border p-1 rounded ml-2">
+                        <option value="urls">URLs (one per line)</option>
+                        <option value="sitemap">Sitemap.xml URL</option>
+                    </select>
+                </div>
+                <div id="extractor-urls-group" class="mb-2">
+                    <textarea id="extractor-urls" class="w-full border p-2" rows="4" placeholder="Enter URLs, one per line..."></textarea>
+                </div>
+                <div id="extractor-sitemap-group" class="mb-2" style="display:none;">
+                    <input id="extractor-sitemap" class="w-full border p-2" placeholder="https://example.com/sitemap.xml" />
+                </div>
+                <div class="mb-2 flex gap-4">
+                    <div>
+                        <label>Max Keywords/URL:</label>
+                        <input id="extractor-max-keywords" type="number" min="1" max="50" value="10" class="border p-1 rounded w-16 ml-1" />
+                    </div>
+                    <div>
+                        <label>Min Keyword Length:</label>
+                        <input id="extractor-min-length" type="number" min="2" max="20" value="3" class="border p-1 rounded w-16 ml-1" />
+                    </div>
+                    <div>
+                        <label><input id="extractor-exclude-common" type="checkbox" checked class="mr-1" />Exclude common words</label>
+                    </div>
+                </div>
+                <button id="run-extractor-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Extract</button>
+                <div id="extractor-results" class="mt-4"></div>
+            </div>
+        `;
+        // منطق إظهار/إخفاء الحقول حسب نوع الإدخال
+        const inputTypeSelect = toolContent.querySelector('#extractor-input-type');
+        const urlsGroup = toolContent.querySelector('#extractor-urls-group');
+        const sitemapGroup = toolContent.querySelector('#extractor-sitemap-group');
+        function toggleInputs() {
+            if (inputTypeSelect.value === 'sitemap') {
+                sitemapGroup.style.display = '';
+                urlsGroup.style.display = 'none';
             } else {
-                data[input.name] = input.value;
+                sitemapGroup.style.display = 'none';
+                urlsGroup.style.display = '';
             }
-        });
-        return data;
+        }
+        inputTypeSelect.addEventListener('change', toggleInputs);
+        toggleInputs();
+        // زر التشغيل
+        toolContent.querySelector('#run-extractor-btn').onclick = () => {
+            const config = {
+                inputType: inputTypeSelect.value,
+                maxKeywordsPerUrl: parseInt(toolContent.querySelector('#extractor-max-keywords').value, 10),
+                minKeywordLength: parseInt(toolContent.querySelector('#extractor-min-length').value, 10),
+                excludeCommonWords: toolContent.querySelector('#extractor-exclude-common').checked
+            };
+            let inputData = { config };
+            if (inputTypeSelect.value === 'sitemap') {
+                inputData.sitemapUrl = toolContent.querySelector('#extractor-sitemap').value.trim();
+            } else {
+                inputData.urls = toolContent.querySelector('#extractor-urls').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+            }
+            this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor', inputData } });
+        };
+    }
+
+    renderInternalLinkingView(toolContent, state) {
+        toolContent.innerHTML = `
+            <div class="p-4">
+                <h2 class="font-bold text-lg mb-2">Internal Linking Tool</h2>
+                <p class="mb-2">Add your keywords and URLs to analyze internal linking opportunities.</p>
+                <textarea id="linking-keywords" class="w-full border p-2 mb-2" rows="4" placeholder="keyword, https://url.com\n..."></textarea>
+                <button id="run-linking-btn" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Analyze</button>
+                <div id="linking-results" class="mt-4"></div>
+            </div>
+        `;
+        toolContent.querySelector('#run-linking-btn').onclick = () => {
+            const lines = toolContent.querySelector('#linking-keywords').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
+            const articles = lines.map(line => {
+                const [keyword, url] = line.split(',');
+                return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
+            }).filter(Boolean);
+            this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
+        };
+    }
+
+    renderWelcome() {
+        return `
+            <div class="welcome-screen">
+                <h1>Welcome to Internal Linking Tool</h1>
+                <p>Select a tool from above to get started:</p>
+                <ul>
+                    <li><strong>Keyword Manager:</strong> Manage your target keywords and their search intent</li>
+                    <li><strong>Keyword Extractor:</strong> Extract keywords from URLs or sitemap</li>
+                    <li><strong>Internal Linking:</strong> Analyze and optimize internal linking</li>
+                </ul>
+            </div>
+        `;
+    }
+
+    showError(message) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.textContent = message;
+        document.getElementById('tool-content').appendChild(errorDiv);
     }
 }
