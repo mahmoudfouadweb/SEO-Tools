@@ -2,29 +2,114 @@ import { EventEmitter } from '../utils/EventEmitter.js';
 import { KeywordManagerDashboard } from '../views/KeywordManagerDashboard.js';
 
 export class UIManager extends EventEmitter {
-    constructor(stateManager) {
+    constructor(stateManager, toolManager) {
         super();
-        console.log('UIManager.js: UIManager constructor has been called.');
         this.stateManager = stateManager;
+        this.toolManager = toolManager;
         this.views = {
             keywordManager: new KeywordManagerDashboard(this)
         };
-        
-        // Listen for state changes
         this.stateManager.on('state-change', this.handleStateChange.bind(this));
-        
-        // Attach event listeners
         this.attachEventListeners();
     }
 
     attachEventListeners() {
-        console.log('UIManager attachEventListeners called');
         document.addEventListener('click', (e) => {
+            // Global tool selection
             if (e.target.matches('.tool-btn')) {
                 const toolId = e.target.dataset.tool;
                 this.emit('event', { type: 'select-tool', payload: toolId });
+                return;
+            }
+
+            // Keyword Extractor Tool actions
+            if (e.target.id === 'run-extractor-btn') {
+                this.handleRunExtractor();
+                return;
+            }
+
+            // Internal Linking Tool actions
+            if (e.target.id === 'run-linking-btn') {
+                this.handleRunLinking();
+                return;
+            }
+
+            // Delegate to active view if it has a handler
+            const currentViewKey = this.stateManager.getState().currentTool;
+            const currentView = this.views[currentViewKey];
+            if (currentView && typeof currentView.handleClick === 'function') {
+                currentView.handleClick(e);
             }
         });
+
+        document.addEventListener('change', (e) => {
+            // Keyword Extractor Tool settings
+            if (e.target.matches('#extractor-input-type, #extractor-exclude-numbers')) {
+                this.handleExtractorSettingChange();
+            }
+
+            // Delegate to active view if it has a handler
+            const currentViewKey = this.stateManager.getState().currentTool;
+            const currentView = this.views[currentViewKey];
+            if (currentView && typeof currentView.handleChange === 'function') {
+                currentView.handleChange(e);
+            }
+        });
+    }
+
+    handleRunExtractor() {
+        const toolState = this.stateManager.getToolState('keyword-extractor') || {};
+        const config = {
+            inputType: document.getElementById('extractor-input-type').value,
+            maxKeywordsPerUrl: parseInt(document.getElementById('extractor-max-keywords').value, 10),
+            minKeywordLength: parseInt(document.getElementById('extractor-min-length').value, 10),
+            excludeNumbers: document.getElementById('extractor-exclude-numbers').checked,
+            manualExcludedWords: toolState.manualExcludedWords || []
+        };
+
+        let inputData = { config };
+        if (config.inputType === 'sitemap') {
+            inputData.sitemapUrl = document.getElementById('extractor-sitemap').value.trim();
+        } else {
+            inputData.urls = document.getElementById('extractor-urls').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        }
+        this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor', inputData } });
+    }
+
+    handleExtractorSettingChange() {
+        const inputTypeSelect = document.getElementById('extractor-input-type');
+        const urlsGroup = document.getElementById('extractor-urls-group');
+        const sitemapGroup = document.getElementById('extractor-sitemap-group');
+
+        if (inputTypeSelect && urlsGroup && sitemapGroup) {
+             if (inputTypeSelect.value === 'sitemap') {
+                sitemapGroup.style.display = '';
+                urlsGroup.style.display = 'none';
+            } else {
+                sitemapGroup.style.display = 'none';
+                urlsGroup.style.display = '';
+            }
+        }
+
+        const excludeNumbers = document.getElementById('extractor-exclude-numbers')?.checked;
+        if (excludeNumbers !== undefined) {
+            this.emit('event', {
+                type: 'update-tool-setting',
+                payload: {
+                    toolId: 'keyword-extractor',
+                    settings: { excludeNumbers }
+                }
+            });
+        }
+    }
+
+    handleRunLinking() {
+        const lines = document.getElementById('linking-keywords').value.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+        const articles = lines.map(line => {
+            const [keyword, url] = line.split(',');
+            return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
+        }).filter(Boolean);
+        this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
     }
 
     handleStateChange(state) {
@@ -32,7 +117,6 @@ export class UIManager extends EventEmitter {
     }
 
     async render(state) {
-        console.log('UIManager render called with state:', state);
         const toolContent = document.getElementById('tool-content');
         if (!toolContent) {
             console.error('Tool content element not found');
@@ -64,72 +148,44 @@ export class UIManager extends EventEmitter {
     }
 
     renderKeywordExtractorView(toolContent, state) {
-        // واجهة متقدمة لاستخراج الكلمات المفتاحية
+        const toolState = this.stateManager.getToolState('keyword-extractor') || {};
+        const schema = this.toolManager.getTool('keyword-extractor').getConfigSchema().properties;
+
         toolContent.innerHTML = `
             <div class="p-4">
                 <h2 class="font-bold text-lg mb-2">Keyword Extractor</h2>
                 <p class="mb-2">Extract keywords from URLs or a sitemap.</p>
                 <div class="mb-2">
                     <label class="font-semibold">Input Type:</label>
-                    <select id="extractor-input-type" class="border p-1 rounded ml-2">
-                        <option value="urls">URLs (one per line)</option>
-                        <option value="sitemap">Sitemap.xml URL</option>
+                    <select id="extractor-input-type" class="border p-1 rounded ml-2" name="inputType">
+                        <option value="urls" ${toolState.inputType === 'urls' ? 'selected' : ''}>URLs (one per line)</option>
+                        <option value="sitemap" ${toolState.inputType === 'sitemap' ? 'selected' : ''}>Sitemap.xml URL</option>
                     </select>
                 </div>
                 <div id="extractor-urls-group" class="mb-2">
                     <textarea id="extractor-urls" class="w-full border p-2" rows="4" placeholder="Enter URLs, one per line..."></textarea>
                 </div>
                 <div id="extractor-sitemap-group" class="mb-2" style="display:none;">
-                    <input id="extractor-sitemap" class="w-full border p-2" placeholder="https://example.com/sitemap.xml" />
+                    <input id="extractor-sitemap" class="w-full border p-2" placeholder="https://example.com/sitemap.xml"/>
                 </div>
                 <div class="mb-2 flex gap-4">
                     <div>
                         <label>Max Keywords/URL:</label>
-                        <input id="extractor-max-keywords" type="number" min="1" max="50" value="10" class="border p-1 rounded w-16 ml-1" />
+                        <input id="extractor-max-keywords" type="number" min="1" max="50" value="${toolState.maxKeywordsPerUrl || schema.maxKeywordsPerUrl.default}" class="border p-1 rounded w-16 ml-1" />
                     </div>
                     <div>
                         <label>Min Keyword Length:</label>
-                        <input id="extractor-min-length" type="number" min="2" max="20" value="3" class="border p-1 rounded w-16 ml-1" />
+                        <input id="extractor-min-length" type="number" min="2" max="20" value="${toolState.minKeywordLength || schema.minKeywordLength.default}" class="border p-1 rounded w-16 ml-1" />
                     </div>
                     <div>
-                        <label><input id="extractor-exclude-common" type="checkbox" checked class="mr-1" />Exclude common words</label>
+                        <label><input id="extractor-exclude-numbers" name="excludeNumbers" type="checkbox" ${toolState.excludeNumbers !== false ? 'checked' : ''} class="mr-1" />Exclude numbers</label>
                     </div>
                 </div>
                 <button id="run-extractor-btn" class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded">Extract</button>
                 <div id="extractor-results" class="mt-4"></div>
             </div>
         `;
-        // منطق إظهار/إخفاء الحقول حسب نوع الإدخال
-        const inputTypeSelect = toolContent.querySelector('#extractor-input-type');
-        const urlsGroup = toolContent.querySelector('#extractor-urls-group');
-        const sitemapGroup = toolContent.querySelector('#extractor-sitemap-group');
-        function toggleInputs() {
-            if (inputTypeSelect.value === 'sitemap') {
-                sitemapGroup.style.display = '';
-                urlsGroup.style.display = 'none';
-            } else {
-                sitemapGroup.style.display = 'none';
-                urlsGroup.style.display = '';
-            }
-        }
-        inputTypeSelect.addEventListener('change', toggleInputs);
-        toggleInputs();
-        // زر التشغيل
-        toolContent.querySelector('#run-extractor-btn').onclick = () => {
-            const config = {
-                inputType: inputTypeSelect.value,
-                maxKeywordsPerUrl: parseInt(toolContent.querySelector('#extractor-max-keywords').value, 10),
-                minKeywordLength: parseInt(toolContent.querySelector('#extractor-min-length').value, 10),
-                excludeCommonWords: toolContent.querySelector('#extractor-exclude-common').checked
-            };
-            let inputData = { config };
-            if (inputTypeSelect.value === 'sitemap') {
-                inputData.sitemapUrl = toolContent.querySelector('#extractor-sitemap').value.trim();
-            } else {
-                inputData.urls = toolContent.querySelector('#extractor-urls').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-            }
-            this.emit('event', { type: 'run-tool', payload: { toolId: 'keyword-extractor', inputData } });
-        };
+        this.handleExtractorSettingChange(); // Set initial visibility based on state
     }
 
     renderInternalLinkingView(toolContent, state) {
@@ -142,14 +198,6 @@ export class UIManager extends EventEmitter {
                 <div id="linking-results" class="mt-4"></div>
             </div>
         `;
-        toolContent.querySelector('#run-linking-btn').onclick = () => {
-            const lines = toolContent.querySelector('#linking-keywords').value.split(/\r?\n/).map(s=>s.trim()).filter(Boolean);
-            const articles = lines.map(line => {
-                const [keyword, url] = line.split(',');
-                return keyword && url ? { keyword: keyword.trim(), url: url.trim() } : null;
-            }).filter(Boolean);
-            this.emit('event', { type: 'run-tool', payload: { toolId: 'internal-linking', inputData: { articles } } });
-        };
     }
 
     renderWelcome() {

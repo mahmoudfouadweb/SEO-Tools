@@ -1,16 +1,6 @@
 export class KeywordManagerDashboard {
     constructor(uiManager) {
         this.uiManager = uiManager;
-        this.boundHandleClick = this.handleClick.bind(this);
-        this.boundHandleChange = this.handleChange.bind(this);
-        this.attachEventListeners();
-    }
-
-    attachEventListeners() {
-        document.removeEventListener('click', this.boundHandleClick);
-        document.removeEventListener('change', this.boundHandleChange);
-        document.addEventListener('click', this.boundHandleClick);
-        document.addEventListener('change', this.boundHandleChange);
     }
 
     handleClick(e) {
@@ -118,8 +108,6 @@ export class KeywordManagerDashboard {
 
     render(state) {
         const keywords = state?.masterKeywords || [];
-        console.log('[KeywordManagerDashboard] render - keywords:', keywords, 'count:', keywords.length);
-        
         return `
             <div class="keyword-manager">
                 <div class="flex justify-between items-center mb-4">

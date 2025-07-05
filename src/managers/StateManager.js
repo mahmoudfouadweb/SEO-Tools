@@ -79,7 +79,12 @@ export class StateManager extends EventEmitter {
 
     setToolState(toolId, state) {
         const toolStates = new Map(this.state.toolStates);
-        toolStates.set(toolId, state);
+        const currentState = toolStates.get(toolId) || {};
+        // Merge new state with current state
+        toolStates.set(toolId, {
+            ...currentState,
+            ...state
+        });
         this.setState({ toolStates });
     }
 

@@ -6,9 +6,6 @@ export class KeywordExtractorTool extends Tool {
         this.name = 'Keyword Extractor';
         this.id = 'keyword-extractor';
         this.description = 'Extract and analyze keywords from URLs or sitemap.xml';
-        if (typeof document !== 'undefined') {
-            this.attachEventListeners();
-        }
     }
 
     getName() {
@@ -61,32 +58,6 @@ export class KeywordExtractorTool extends Tool {
             },
             required: ['inputType', 'maxKeywordsPerUrl']
         };
-    }
-
-    attachEventListeners() {
-        document.addEventListener('click', (e) => {
-            if (e.target.id === 'add-excluded-word') {
-                const input = document.getElementById('new-excluded-word');
-                const word = input.value.trim();
-                if (word) {
-                    const state = this.stateManager.getState();
-                    const manualExcludedWords = Array.from(new Set([...(state.manualExcludedWords || []), word]));
-                    this.stateManager.emit('event', { type: 'update-manual-excluded-words', payload: manualExcludedWords });
-                    input.value = '';
-                }
-            } else if (e.target.classList.contains('remove-excluded-word')) {
-                const wordToRemove = e.target.dataset.word;
-                const state = this.stateManager.getState();
-                const manualExcludedWords = (state.manualExcludedWords || []).filter(w => w !== wordToRemove);
-                this.stateManager.emit('event', { type: 'update-manual-excluded-words', payload: manualExcludedWords });
-            }
-        });
-
-        document.addEventListener('change', (e) => {
-            if (e.target.name === 'excludeNumbers') {
-                this.stateManager.emit('event', { type: 'set-exclude-numbers', payload: e.target.checked });
-            }
-        });
     }
 
     async _fetchSitemap(sitemapUrl) {
@@ -142,6 +113,15 @@ export class KeywordExtractorTool extends Tool {
         }
     }
 
+    /**
+     * Extracts and scores keywords from provided page content based on configuration.
+     * This method uses a weighted approach, giving more importance to title and meta description.
+     * It generates n-grams (2 and 3-word phrases) to identify multi-word keywords.
+     * Filtering removes common stop words, manually excluded words, and short words.
+     * Scoring is based on frequency, with a boost for multi-word phrases.
+     * @param {object} content - The page content ({ title, metaDescription, headings, mainContent }).
+     * @param {object} config - The tool's configuration for extraction.
+     */
     _extractKeywords(content, config) {
         const manualExcludedSet = new Set((config.manualExcludedWords || []).map(w => w.toLowerCase()));
         const commonWords = new Set([
@@ -158,7 +138,7 @@ export class KeywordExtractorTool extends Tool {
             (content.mainContent || '')
         ].join(' ');
 
-        // 1. Pre-process text and get a clean list of words
+        // Step 1: Pre-process text and get a clean list of words
         const rawWords = textToAnalyze.toLowerCase()
             .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
             .replace(/https?:\/\/[^\s]+/g, '')
@@ -169,7 +149,7 @@ export class KeywordExtractorTool extends Tool {
             .split(' ')
             .filter(Boolean);
 
-        // 2. Generate n-grams (bigrams and trigrams)
+        // Step 2: Generate n-grams (bigrams and trigrams) to find multi-word phrases
         const generateNgrams = (wordList, n) => {
             const ngrams = [];
             for (let i = 0; i <= wordList.length - n; i++) {
@@ -181,7 +161,7 @@ export class KeywordExtractorTool extends Tool {
         const bigrams = generateNgrams(rawWords, 2);
         const trigrams = generateNgrams(rawWords, 3);
 
-        // 3. Combine all potential keywords and filter them
+        // Step 3: Combine all potential keywords and apply filters
         const allPotentialKeywords = [...rawWords, ...bigrams, ...trigrams];
 
         const filteredKeywords = allPotentialKeywords.filter(keyword => {
@@ -208,13 +188,13 @@ export class KeywordExtractorTool extends Tool {
             return true;
         });
 
-        // 4. Calculate frequency of the filtered keywords
+        // Step 4: Calculate frequency of the filtered keywords
         const keywordFreq = filteredKeywords.reduce((acc, keyword) => {
-            acc[word] = (acc[word] || 0) + 1;
+            acc[keyword] = (acc[keyword] || 0) + 1;
             return acc;
         }, {});
         
-        // 5. Score, rank, and return the top keywords
+        // Step 5: Score, rank, and return the top keywords
         const rankedKeywords = Object.entries(keywordFreq)
             .map(([keyword, freq]) => {
                 const wordCount = keyword.split(' ').length;

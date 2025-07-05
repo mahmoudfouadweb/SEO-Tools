@@ -5,8 +5,8 @@ import { ToolManager } from './managers/ToolManager.js';
 export class App {
     constructor() {
         this.stateManager = new StateManager();
-        this.uiManager = new UIManager(this.stateManager);
         this.toolManager = new ToolManager(this.stateManager);
+        this.uiManager = new UIManager(this.stateManager, this.toolManager);
         // Handle events from UI Manager
         this.uiManager.on('event', this.handleUIEvent.bind(this));
     }
