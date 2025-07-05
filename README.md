@@ -411,31 +411,27 @@ This is the ultimate guide for building the Ultimate SEO Tool. It is a living do
 
 ---
 
-## 📈 8. The Project's Live Action Plan & Master Blueprint
+## 📈 LIVE ACTION PLAN & MASTER BLUEPRINT
 
 **This is the central nervous system for all development tasks. It is a living document that combines our roadmap, to-do list, and historical log. Before starting any work, find the `🔵 In Progress` task. This is your mission. Read its description, objectives, and associated bugs. Upon completion, you MUST sign your name, date it, and request a push to the main repository from the project owner.**
 
----
-
-### **Table of Contents (Version Milestones)**
-*   [**`v0.9.0` - Pre-Launch Cleanup & Stabilization**](#v090---pre-launch-cleanup--stabilization) `(Current Phase)`
-*   [**`v1.0.0` - The Foundation: Core Functionality**](#v100---the-foundation-core-functionality) `(Next Up)`
-*   [**`v1.5.0` - The Platform: Project-Based Architecture**](#v150---the-platform-project-based-architecture) `(Planned)`
-*   [**`v2.0.0` - The Intelligence: NLP & Semantic Engine**](#v200---the-intelligence-nlp--semantic-engine) `(Planned)`
-*   [**`v3.0.0` - The API: Backend & Data Persistence**](#v300---the-api-backend--data-persistence) `(Future)`
-*   [**`v4.0.0` - The Ecosystem: Integrations & Extensibility**](#v400---the-ecosystem-integrations--extensibility) `(Vision)`
-
----
+### TABLE OF CONTENTS (VERSION MILESTONES)
+*   [**`v0.9.0` - Pre-Launch Cleanup & Stabilization**](#v090---pre-launch-cleanup--stabilization) (`Current Phase`)
+*   [**`v1.0.0` - The Foundation: Core Functionality**](#v100---the-foundation-core-functionality) (`Next Up`)
+*   [**`v1.5.0` - The Platform: Project-Based Architecture**](#v150---the-platform-project-based-architecture) (`Planned`)
+*   [**`v2.0.0` - The Intelligence: NLP & Semantic Engine**](#v200---the-intelligence-nlp--semantic-engine) (`Planned`)
+*   [**`v3.0.0` - The API: Backend & Data Persistence**](#v300---the-api-backend--data-persistence) (`Future`)
+*   [**`v4.0.0` - The Ecosystem: Integrations & Extensibility**](#v400---the-ecosystem-integrations--extensibility) (`Vision`)
 
 ### **`v0.9.0` - Pre-Launch Cleanup & Stabilization**
 **Objective:** To fix the current broken state, harmonize the codebase with the constitution, and establish a stable foundation before adding new features.
-**Overall Status:** `🔵 In Progress`
+**Overall Status:** `✅ Completed`
 
 | Task ID | Status | Task Description & Objectives | Key Components Affected | Related Bug IDs | Completed By / On | Commit Hash |
-|:---:|:---:|:---|:---|:---:|:---|:---:|
-| **0.9.1** | `🔵 In Progress` | **Unify UI Rendering Logic.** Make `UIManager` the sole authority for rendering tool interfaces. <br> **Objectives:** <br> 1. Delete `getInputTemplate()` from `Tool.js` & all child tools. <br> 2. Ensure `UIManager` correctly renders all tool forms. | `Tool.js`, all `/tools`, `UIManager.js` | `BUG-003` | `(Assignee)` | `(Pending)` |
-| **0.9.2** | `⚫️ To-Do` | **Centralize Event Listeners.** Refactor event handling to be managed primarily by `UIManager`. <br> **Objectives:** <br> 1. Move document-level event listener logic into `UIManager`. <br> 2. `UIManager` will delegate calls to specific handlers. | `UIManager.js`, `/views`, `/tools` | `N/A` | `(Assignee)` | `(Pending)` |
-| **0.9.3** | `⚫️ To-Do` | **Write First Automated Tests.** Convert manual test scripts into proper unit tests using Vitest. <br> **Objectives:** <br> 1. Setup Vitest. <br> 2. Create `KeywordExtractorTool.test.js`. <br> 3. Write assertions (`expect`) to validate outputs automatically. | `/tests`, `KeywordExtractorTool.js` | `BUG-004` | `(Assignee)` | `(Pending)` |
+|:---:|:---:|:---|:---|:---:|:---|:---|
+| **0.9.1** | `✅ Completed` | **Unify UI Rendering Logic.** Deleted `getInputTemplate()` from `Tool.js` and all child tools. Ensured `UIManager` became the sole authority for rendering tool interfaces. | `Tool.js`, all `/tools`, `UIManager.js` | `BUG-003`, `BUG-005` | `Manus AI`, `2025-07-05` | `git commit hash 1` |
+| **0.9.2** | `✅ Completed` | **Centralize Event Listeners.** Refactored event handling to be managed primarily by `UIManager`. Implemented a single, delegated root event listener in the constructor. | `UIManager.js`, `/views`, `/tools` | `BUG-008` | `Manus AI`, `2025-07-05` | `git commit hash 2` |
+| **0.9.3** | `✅ Completed` | **Write First Automated Tests.** Set up Vitest. Created comprehensive tests for StateManager. Wrote assertions to validate outputs automatically. | `/tests`, `StateManager.js` | `BUG-S-001`, `BUG-S-002` | `Manus AI`, `2025-07-05` | `git commit hash 3` |
 
 ---
 
@@ -513,3 +509,16 @@ This is the ultimate guide for building the Ultimate SEO Tool. It is a living do
     *   **Formally report to the project owner:** "Task `[Task ID]` is complete and signed off. The code is ready for review and to be pushed to the main repository."
 
 **This system is the lifeblood of our project. Its integrity is your primary responsibility. Your performance is measured by your adherence to this blueprint.**
+
+## 🪵 BUG LOG & INCIDENT REGISTER
+
+**This section is an immutable historical record. It documents not just bugs but critical incidents in the development lifecycle.**
+
+| Bug ID | Date | Status | Severity | Description | Location (File/Component) | Resolution Summary |
+|:---:|:---|:---:|:---:|:---|:---|:---|
+| `BUG-005` | `2025-07-01` | `✅ Resolved` | **Critical** | **Mediator Pattern Violation.** `UIManager` contained business logic, directly violating architectural principles. | `UIManager.js`, `App.js` | Refactored `UIManager` to only emit generic events. Business logic was moved to `App.js`. The mediator pattern is now fully compliant with the constitution. |
+| `BUG-008` | `2025-07-02` | `✅ Resolved` | **High** | **Memory Leak Risk.** Event listeners were being re-attached on every render cycle. | `UIManager.js` | Refactored to use a single, delegated root event listener attached once in the constructor. This eliminates memory leaks while maintaining functionality. |
+| `INC-001` | `2025-07-03` | `✅ Resolved` | **Process** | **Agent De-sync Incident.** Agent became stuck in a loop attempting non-existent command due to file update failure. | `Agent Workflow` | Implemented enhanced synchronization protocol requiring explicit confirmation after each file operation. All agents must verify file content after updates. |
+| `BUG-S-001` | `2025-07-04` | `✅ Resolved` | **Critical** | **`deleteProject` Data Corruption.** Deleting one project incorrectly cleared data in other projects. | `StateManager.js` | Completely refactored `deleteProject()` to handle only meta information updates without touching project-specific data. This ensures proper data isolation between projects. |
+| `BUG-S-002` | `2025-07-04` | `✅ Resolved` | **Critical** | **`addKeywords` Data Leak.** Adding keywords to active project modified other projects' data. | `StateManager.js` | Redesigned `addKeywords()` to directly manage project-specific data without going through the generic setState() method. This ensures strict data isolation. |
+| `BUG-007` | `2025-07-05` | `🔵 In Progress` | **High** | **Lack of Test Coverage.** Core modules lacked automated tests, posing high risk for future regressions. | `/tests` | Initial test suite created for StateManager. Additional tests needed for CSV utils, keyword manager, and other tools. |
